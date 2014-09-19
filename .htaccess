@@ -1,0 +1,3 @@
+<Files config*>
+Deny from all
+</Files>

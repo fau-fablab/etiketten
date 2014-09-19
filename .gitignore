@@ -1,3 +1,12 @@
+# spezifisch
+*~
+config.ini
+
+####################################
+# Template für python gitignore:
+
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
