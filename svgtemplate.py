@@ -119,6 +119,8 @@ def createEAN8(num):
 
 def oerpReadProduct(etikettId):
 	#produktRef='0009'
+	# ergänze führende Nullen
+	etikettId="{:04}".format(int(etikettId))
 	print etikettId
 	prod_ids = oerp.search('product.product', [('default_code', '=', etikettId)])
 	if len(prod_ids)==0:
