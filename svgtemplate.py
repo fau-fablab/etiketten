@@ -126,13 +126,27 @@ def oerpReadProduct(etikettId):
 	if len(prod_ids)==0:
 		return {"TITEL":"__________","ORT":"Fehler - nicht gefunden","PREIS":"","ID":etikettId}
 	p=oerp.read('product.product',prod_ids[0],[],context=oerp.context)
-	#print p
+	
+	ort=p['property_stock_location']
+	if ort==False:
+		# kein Ort direkt im Produkt festgelegt. versuche Ort aus Kategorie abzurufen
+		c=oerp.read('product.category',p['categ_id'][0],[],context=oerp.context)
+		ort=c['property_stock_location']
+	if ort==False: 
+		# keinerlei Ort festgelegt :(
+		ort="Ort???"
+	else:
+		ort=ort[1]
+		for removePrefix in [u"tats\xe4chliche Lagerorte  / FAU FabLab / ", u"tats\xe4chliche Lagerorte  / "]:
+			if ort.startswith(removePrefix):
+				ort=ort[len(removePrefix):]
+	
 	if abs(0.1%0.01)>0.0005: # drei Nachkomastellen
 		formatstring=u"{:.3f} €"
 	else:
 		formatstring=u"{:.2f} €"
-	# TODO Ort
-	data={"TITEL":p['name'], "ORT":"","ID":etikettId} # p['description']
+	
+	data={"TITEL":p['name'], "ORT":ort,"ID":etikettId} # p['description']
 	data["PREIS"]=formatstring.format(p['list_price']).replace(".",",")
 	return data
 	#print p
