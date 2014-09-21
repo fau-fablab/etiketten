@@ -57,7 +57,7 @@ function erzeuge_pdf_klein($items,$print,$startposition) {
 
 
 if (empty($_POST["etiketten"])) {
-	echo '<html><body><form action="elektro-etiketten.php" method="post">IDs: <input name="etiketten" type="text" size="40"> <input type="submit" name="ok" value="weiter"> </form></body></html>';
+	echo '<html><body><form action="elektro-etiketten.php" method="post">IDs: <input name="etiketten" type="text" size="40"> <input type="submit" name="ok" value="weiter"> <br><span style="color:gray;"> Beispieleingabe: <tt>154 341 44    100-110</tt></form></body></html>';
 } else {
 	$items=array_filter(explode(" ",$_POST["etiketten"]));
 	$items=expand_array_ranges($items);
