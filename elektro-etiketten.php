@@ -13,6 +13,7 @@ function insert_html_lines_top() {
 	echo '<!DOCTYPE html>
 	<html>
 	  <head>
+	    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 	    <title>Etikettendruck | FAU FabLab</title>
 	    <link type="text/css" rel="stylesheet" media="all" href="https://fablab.fau.de/sites/fablab.fau.de/files/css/css_b0996c4e09219ad9d3145a23ac4cfbce.css" />
 	    <link type="text/css" rel="stylesheet" media="all" href="/sites/all/themes/fusion/fusion_core/css/grid16-fluid.css?j"/>
@@ -116,7 +117,6 @@ function erzeuge_pdf_klein($items,$print,$startposition) {
 
 if (empty($_POST["etiketten"])) {
 	insert_html_lines_top();
-	header('Content-Type:text/html; charset=UTF-8');
 	echo '<form action="elektro-etiketten.php" method="post"><b>IDs:</b> <input name="etiketten" type="text" size="40" class="form-text required"> <input type="submit" name="ok" value="weiter" class="form-submit">
 	<br><span style="color:gray;"> Beispieleingabe: <tt>154 341 44 100-110</tt>
 	</form>';
@@ -127,12 +127,6 @@ if (empty($_POST["etiketten"])) {
 	if (isset($_POST["type"])) {
 		$print=isset($_POST["print"]);
 		
-		if ($print) {
-			insert_html_lines_top();
-			echo '<p><b>Etiketten werden ausgedruckt.</b></p></br>
-			<form action="elektro-etiketten.php"><input type="submit" value="Zur&uuml;ck" class="form-submit"></form>';
-			insert_html_lines_bottom();
-		}
 		$output="";
 		if ($_POST["type"]=="gross") {
 			$output=erzeuge_pdf($items,$print);
@@ -141,17 +135,19 @@ if (empty($_POST["etiketten"])) {
 			$output=erzeuge_pdf_klein($items,$print,$_POST["startposition"]);
 		}
 		
-		if (!$print) {
-			//insert_html_lines_top();
+		if ($print) {
+			insert_html_lines_top();
+			echo '<p><b>Etiketten werden ausgedruckt.</b></p></br>
+			<form action="elektro-etiketten.php"><input type="submit" value="Zur&uuml;ck" class="form-submit"></form>';
+			insert_html_lines_bottom();
+		} else {
 			header('Content-type: application/pdf');
 			header('Content-Disposition: attachment; filename="downloaded.pdf"');
 			readfile($output);
-			//insert_html_lines_bottom();
 		}
 	} else {
 		// IDs wurden eingegeben, jetzt die Frage nach der Seitengröße
 		insert_html_lines_top();
-		header('Content-Type:text/html; charset=UTF-8');
 		echo '<form action="elektro-etiketten.php" method="post">IDs: <input name="etiketten" type="text" value="'.htmlspecialchars($_POST["etiketten"]).'" class="form-text required"></br></br>
 		<ul><li><b>Bitte angeben:</b> Format:
 		<select name="type" size="1">
