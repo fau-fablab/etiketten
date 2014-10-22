@@ -42,7 +42,7 @@ def clearGroupMembers(tree,group):
 		e.clear()
 
 # Load page template
-template = etree.parse("./vorlage-etikettenpapier-schubladenmagazin.svg")
+template = etree.parse("./vorlage-etikettenpapier-60x30.svg")
 # Vernichte alles, dessen id mit ignore endet
 for e in template.findall("*"):
 	if (e.get("id","").endswith("ignore")):
@@ -158,10 +158,6 @@ def makeEtikett(etikettId,etikettNum):
 	global etikettVorlage, dictInput
 	etikett=deepcopy(etikettVorlage)
 	etikett.set("id","etikettGeneriert"+str(etikettNum))
-	# Zeilen- und Spaltenabstände in komischen svg-Maßeinheiten (aus Inkscape-Datei abgelesen)
-	yOffset=(165.98325-45.865125)*math.floor(etikettNum/3)
-	xOffset=(268.54725-34.54725)*(etikettNum%3)
-	etikett.set("transform","translate("+str(xOffset)+","+str(yOffset)+")")
 	
 	data=oerpReadProduct(etikettId)
 	#data=dictInput.get(str(etikettId),{"KURZTITEL":"Error","TITEL":"Error","ID":"000"})
@@ -210,13 +206,11 @@ while len(etikettIds)>0:
 	page=deepcopy(template)
 	pageNum=pageNum+1
 	pages.append(pageNum)
-	for etikettNum in range(0,24):
+	for etikettNum in range(0,1):
 		if len(etikettIds)==0:
 			# keine weiteren Etiketten zu drucken
 			break
 		etikettId=etikettIds.pop(0) # hole erste zu druckende ID aus der Liste
-		if (etikettId == None or etikettId == "None"):
-			continue # Lücke lassen, z.B. wenn ein Teil des Etikettenbogens schon verbraucht ist
 		page.getroot().append(makeEtikett(etikettId,etikettNum))
 	page.write("./temp/output-etikettenpapier-%d.svg" % pageNum)
 	if os.system("inkscape ./temp/output-etikettenpapier-%d.svg --export-pdf=./temp/output-etikettenpapier-%d.pdf" % (pageNum,pageNum)) != 0:

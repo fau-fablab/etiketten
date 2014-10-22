@@ -108,7 +108,7 @@ function erzeuge_pdf_klein($items,$print,$startposition) {
 	system("./svgtemplate.py ".$items_str);
 	#chdir("../");
 	if ($print) {
-		system("lpr -P etiketten ./temp/output-etikettenpapier.pdf");
+		system("lpr -P Zebra-EPL2-Label ./temp/output-etikettenpapier.pdf");
 	}
 	return "./temp/output-etikettenpapier.pdf";
 }
