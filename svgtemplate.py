@@ -134,7 +134,7 @@ def oerpReadProduct(etikettId):
 		ort=c['property_stock_location']
 	if ort==False: 
 		# keinerlei Ort festgelegt :(
-		ort="Ort???"
+		ort="kein Ort eingetragen"
 	else:
 		ort=ort[1]
 		for removePrefix in [u"tats\xe4chliche Lagerorte  / FAU FabLab / ", u"tats\xe4chliche Lagerorte  / "]:
@@ -148,6 +148,8 @@ def oerpReadProduct(etikettId):
 	
 	data={"TITEL":p['name'], "ORT":ort,"ID":etikettId} # p['description']
 	data["PREIS"]=formatstring.format(p['list_price']).replace(".",",")
+	data["VERKAUFSEINHEIT"]=p['uom_id'][1]
+
 	return data
 	#print p
 	#p['list_price'] p['name'] p['description']
@@ -230,3 +232,4 @@ if os.system(pdftkCmd) != 0:
 for pageNum in pages:
 	os.remove("./temp/output-etikettenpapier-%d.pdf" % pageNum)
 	os.remove("./temp/output-etikettenpapier-%d.svg" % pageNum)
+
