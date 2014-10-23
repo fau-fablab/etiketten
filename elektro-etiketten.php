@@ -12,59 +12,46 @@ Public Domain / zur uneingeschr√§nkten Verwendung freigegeben, keine Garantie f√
 function insert_html_lines_top() {
 	echo '<!DOCTYPE html>
 	<html>
-	  <head>
+  <head>
 	    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 	    <title>Etikettendruck | FAU FabLab</title>
-	    <link type="text/css" rel="stylesheet" media="all" href="https://fablab.fau.de/sites/fablab.fau.de/files/css/css_b0996c4e09219ad9d3145a23ac4cfbce.css" />
-	    <link type="text/css" rel="stylesheet" media="all" href="/sites/all/themes/fusion/fusion_core/css/grid16-fluid.css?j"/>
+	    <link type="text/css" rel="stylesheet" media="all" href="https://user.fablab.fau.de/~ev80uhys/web/faufablab-light.css" />
 	    <link rel="shortcut icon" href="https://fablab.fau.de/sites/fablab.fau.de/files/fablab_favicon_1.ico" type="image/x-icon">
-	  </head>
-	  
-	  <body class="not-front not-logged-in page-termine no-sidebars layout-first-main sidebars-both-last font-size-14 grid-type-fluid grid-width-16 fluid-90">
-	
-	    <div id="page" class="page">
-	    
-	      <div id="page-inner" class="page-inner">
-	      
-		<div id="header-group-wrapper" class="header-group-wrapper full-width">
-		    <div id="header-group-inner-inner" class="clearfix">
-		      <div id="logo" style="margin-left:20%; margin-right:20%;">
-			<a href="https://fablab.fau.de/" title="Startseite"><img src="https://fablab.fau.de/sites/fablab.fau.de/files/acquia_marina_logo.png" alt="Startseite"></a>
-		      </div>
-		      <div id="fork-on-github" style="position: fixed; top: 0; right: 0; border: 0;">
-			<a href="https://github.com/fau-fablab/etiketten">
-			  <img src="https://camo.githubusercontent.com/52760788cde945287fbb584134c4cbc2bc36f904/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f77686974655f6666666666662e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_white_ffffff.png">
-			</a>
-		    </div>
-		  </div>
-		</div>
-	      
-		<div id="preface-top-wrapper" class="preface-top-wrapper full-width">
-		  <div id="preface-top" class="preface-top row grid16-16">
-		    <div id="preface-top-inner" class="preface-top-inner inner clearfix"></div>
-		  </div>
-		</div>
-	      
-	      
-		<div id="main-wrapper" class="main-wrapper full-width">
-		  <div id="main" style="margin-left:10%; margin-right:10%; margin-bottom:40px;">
-		    <h1 class="title" style="margin-bottom:40px">Etiketten</h1>';
+  </head>
+
+	  <body>
+
+         <div id="header" class="header">
+             <div id="logo" class="logo">
+                 <a href="https://fablab.fau.de">
+                     <img src="https://fablab.fau.de/sites/fablab.fau.de/files/acquia_marina_logo.png" alt="Startseite">
+                 </a>
+             </div>
+
+             <div id="fork-on-github" style="position: fixed; top: 0; right: 0; border: 0;">
+                 <a href="https://github.com/fau-fablab/etiketten">
+                     <img src="https://camo.githubusercontent.com/52760788cde945287fbb584134c4cbc2bc36f904/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f77686974655f6666666666662e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_white_ffffff.png">
+                 </a>
+             </div>
+         </div>
+
+        <div id="top" class="top">
+        </div>
+
+
+        <div id="content" class="content">
+            <h1>Etiketten</h1>';
 }
 
 function insert_html_lines_bottom() {
 	echo '</div>
 	</div>
 
-	
-	<div id="footer-message-wrapper" class="footer-message-wrapper full-width">
-	  <div id="footer-message" class="footer-message row grid16-16" style="margin-left:10%; margin-right:10%;">
-	    <div id="footer-message-inner" class="footer-message-inner inner clearfix"></div>
-	  </div>
+
+	<div id="bottom" class="bottom">
 	</div>
 
-      </div>
-    </div>
-  </body>
+    </body>
 </html>';
 }
 
