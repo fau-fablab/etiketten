@@ -104,7 +104,7 @@ function erzeuge_pdf_klein($items,$print,$startposition) {
 
 if (empty($_POST["etiketten"])) {
 	insert_html_lines_top();
-	echo '<form action="elektro-etiketten.php" method="post"><b>IDs:</b> <input name="etiketten" type="text" size="40" class="form-text required"> <input type="submit" name="ok" value="weiter" class="form-submit">
+	echo '<form action="elektro-etiketten.php" method="post"><b>IDs:</b> <input name="etiketten" type="text" size="40" value="154 341 44 100-110"> <input type="submit" name="ok" value="weiter">
 	<br><span style="color:gray;"> Beispieleingabe: <tt>154 341 44 100-110</tt>
 	</form>';
 	insert_html_lines_bottom();
@@ -125,7 +125,7 @@ if (empty($_POST["etiketten"])) {
 		if ($print) {
 			insert_html_lines_top();
 			echo '<p><b>Etiketten werden ausgedruckt.</b></p></br>
-			<form action="elektro-etiketten.php"><input type="submit" value="Zur&uuml;ck" class="form-submit"></form>';
+			<form action="elektro-etiketten.php"><input type="submit" value="Zur&uuml;ck"></form>';
 			insert_html_lines_bottom();
 		} else {
 			header('Content-type: application/pdf');
@@ -135,7 +135,7 @@ if (empty($_POST["etiketten"])) {
 	} else {
 		// IDs wurden eingegeben, jetzt die Frage nach der Seitengröße
 		insert_html_lines_top();
-		echo '<form action="elektro-etiketten.php" method="post">IDs: <input name="etiketten" type="text" value="'.htmlspecialchars($_POST["etiketten"]).'" class="form-text required"></br></br>
+		echo '<form action="elektro-etiketten.php" method="post">IDs: <input name="etiketten" type="text" value="'.htmlspecialchars($_POST["etiketten"]).'"></br></br>
 		<ul><li><b>Bitte angeben:</b> Format:
 		<select name="type" size="1">
 		  <option value="klein">klein (6x3cm), Selbstklebe-Etikettenpapier (f&uuml;r Schubladenmagazine)</option>
@@ -143,9 +143,9 @@ if (empty($_POST["etiketten"])) {
 		</select></br></br>
 		</li><li>
 		<b>Bitte angeben:</b> Wie viele Etiketten auf diesem Bogen wurden bereits verbraucht?
-		<input type="text" value="0" name="startposition" class="form-text required"></br></br>
+		<input type="text" value="0" name="startposition"></br></br>
 		</li></ul>
-		<input type="submit" name="pdf" value="PDF zeigen" class="form-submit"><input type="submit" name="print" value="Drucken (vorher ggf. Etikettenpapier einlegen!)" class="form-submit"> </form>
+		<input type="submit" name="pdf" value="PDF zeigen"><input type="submit" name="print" value="Drucken (vorher ggf. Etikettenpapier einlegen!)"> </form>
 		<p>Zum Drucken Etikettenpapier in den manuellen Einzug des Druckers einlegen, bedruckbare Seite nach oben.</p>';
 		insert_html_lines_bottom();
 	}
