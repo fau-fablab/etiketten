@@ -103,12 +103,43 @@ function erzeuge_pdf_klein($items,$print,$startposition) {
 
 
 if (empty($_POST["etiketten"])) {
-	insert_html_lines_top();
-	echo '<form action="elektro-etiketten.php" method="post"><b>IDs:</b> <input name="etiketten" type="text" size="40" value="154 341 44 100-110"> <input type="submit" name="ok" value="weiter">
-	<br><span style="color:gray;"> Beispieleingabe: <tt>154 341 44 100-110</tt>
-	</form>';
-	insert_html_lines_bottom();
+		// IDs wurden eingegeben, jetzt die Frage nach der Seitengröße
+		insert_html_lines_top();
+		echo '<form action="elektro-etiketten.php" method="post"><b>Artikelnummern (ERP: "interne Referenz"):</b> <input name="etiketten" type="text" size="40" placeholder="z.B.  541 123 9001" autocomplete="off">
+		<input type="submit" name="print" value="Drucken">    <input type="submit" name="pdf" value="anzeigen" style="font-weight:normal; background:linear-gradient(to bottom, #B3C6D3 0%, #95A8B4 100%);"> 
+		<!-- BASTELEI: Format-Auswahl deaktiviert, hidden input der fest auf klein und 0 bereits verbraucht stellt -->
+		<input type="hidden" name="type" value="klein"/>
+		<input type="hidden" name="startposition" value="0"/>
+		</form>
+		
+		
+		<p>Zum Drucken weiße Papier-Etiketten in den Etikettendrucker einlegen — nicht die silbernen!</p>
+		<p> Probleme bitte an die Mailingliste oder auf <a href="https://github.com/fau-fablab/etiketten">GitHub</a> melden.</p>
+		
+		<p style="margin-top:2cm"> Details:
+	<ul><li>Artikelnummern werden im ERP bei "interne Referenz" als vierstellige Zahl (mit führenden Nullen) eingetragen, z.B. <tt>0154</tt>. Die führenden Nullen können hier weggelassen werden.</li>
+	<li>Mehrere Artikelnummern durch Leerzeichen trennen. Bereiche von Artikelnummern gehen auch: <tt>100-123</tt></li>
+	<li>Der aufgedruckte Ort wird als Lagerort des Artikels oder der Kategorie eingetragen. (Kategorien vererben den Ort nicht an Unterkategorien!)</li>
+	</ul></p>
+	
+	
+		
+		<!-- <ul><li><b>Bitte angeben:</b> Format:
+		<select name="type" size="1">
+		  <option value="klein">klein (6x3cm), Selbstklebe-Etikettenpapier (f&uuml;r Schubladenmagazine)</option>
+		  <option value="gross">groß (ca 8x10cm), normales Papier (f&uuml;r Elektronik-T&uuml;tchen)</option> 
+		</select></br></br>
+		</li>
+		<li>
+		<b>Bitte angeben:</b> Wie viele Etiketten auf diesem Bogen wurden bereits verbraucht?
+		<input type="text" value="0" name="startposition"></br></br>
+		</li></ul> -->
+		
+		
+		';
+		insert_html_lines_bottom();
 } else {
+	//print_r($_POST);
 	$items=array_filter(explode(" ",$_POST["etiketten"]));
 	$items=expand_array_ranges($items);
 	if (isset($_POST["type"])) {
@@ -116,6 +147,7 @@ if (empty($_POST["etiketten"])) {
 		
 		$output="";
 		if ($_POST["type"]=="gross") {
+			die("zur zeit deaktiviert");
 			$output=erzeuge_pdf($items,$print);
 		} else {
 			// kleine Etiketten für selbstklebendes Papier
@@ -133,21 +165,7 @@ if (empty($_POST["etiketten"])) {
 			readfile($output);
 		}
 	} else {
-		// IDs wurden eingegeben, jetzt die Frage nach der Seitengröße
-		insert_html_lines_top();
-		echo '<form action="elektro-etiketten.php" method="post">IDs: <input name="etiketten" type="text" value="'.htmlspecialchars($_POST["etiketten"]).'"></br></br>
-		<ul><li><b>Bitte angeben:</b> Format:
-		<select name="type" size="1">
-		  <option value="klein">klein (6x3cm), Selbstklebe-Etikettenpapier (f&uuml;r Schubladenmagazine)</option>
-		  <!-- <option value="gross">groß (ca 8x10cm), normales Papier (f&uuml;r Elektronik-T&uuml;tchen)</option> -->
-		</select></br></br>
-		</li><li>
-		<b>Bitte angeben:</b> Wie viele Etiketten auf diesem Bogen wurden bereits verbraucht?
-		<input type="text" value="0" name="startposition"></br></br>
-		</li></ul>
-		<input type="submit" name="pdf" value="PDF zeigen"><input type="submit" name="print" value="Drucken (vorher ggf. Etikettenpapier einlegen!)"> </form>
-		<p>Zum Drucken Etikettenpapier in den manuellen Einzug des Druckers einlegen, bedruckbare Seite nach oben.</p>';
-		insert_html_lines_bottom();
+
 	}
  	
 }
