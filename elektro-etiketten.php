@@ -91,7 +91,7 @@ function erzeuge_pdf_klein($items,$print,$startposition) {
 	for ($i=0;$i<$startposition;$i++) {
 		$items_str="None " . $items_str;
 	}
-	
+
 	system("./svgtemplate.py ".$items_str);
 	#chdir("../");
 	if ($print) {
@@ -111,19 +111,20 @@ if (empty($_POST["etiketten"])) {
 		<input type="hidden" name="type" value="klein"/>
 		<input type="hidden" name="startposition" value="0"/>
 		</form>
-		
-		
+
+
 		<p>Zum Drucken weiße Papier-Etiketten in den Etikettendrucker einlegen — nicht die silbernen!</p>
-		<p> Probleme bitte an die Mailingliste oder auf <a href="https://github.com/fau-fablab/etiketten">GitHub</a> melden.</p>
-		
+		<p>Probleme bitte an die <a href="mailto:fablab-aktive@fablab.fau.de">Mailingliste</a> oder auf <a href="https://github.com/fau-fablab/etiketten">GitHub</a> melden.</p>
+
 		<p style="margin-top:2cm"> Details:
 	<ul><li>Artikelnummern werden im ERP bei "interne Referenz" als vierstellige Zahl (mit führenden Nullen) eingetragen, z.B. <tt>0154</tt>. Die führenden Nullen können hier weggelassen werden.</li>
-	<li>Mehrere Artikelnummern durch Leerzeichen trennen. Bereiche von Artikelnummern gehen auch: <tt>100-123</tt></li>
+	<li>Mehrere Artikelnummern durch Leerzeichen oder Komma trennen. Bereiche von Artikelnummern gehen auch: <tt>100-123</tt></li>
 	<li>Der aufgedruckte Ort wird als Lagerort des Artikels oder der Kategorie eingetragen. (Kategorien vererben den Ort nicht an Unterkategorien!)</li>
+	<li>Die Artikelnummern können in <a href="https://eichhörnchen.fablab.fau.de">OpenERP</a> oder in der <a href="https://user.fablab.fau.de/~buildserver/pricelist/output/">Teile Übersicht</a> nachgeschaut werden.</li>
 	</ul></p>
-	
-	
-		
+
+
+
 		<!-- <ul><li><b>Bitte angeben:</b> Format:
 		<select name="type" size="1">
 		  <option value="klein">klein (6x3cm), Selbstklebe-Etikettenpapier (f&uuml;r Schubladenmagazine)</option>
@@ -134,17 +135,17 @@ if (empty($_POST["etiketten"])) {
 		<b>Bitte angeben:</b> Wie viele Etiketten auf diesem Bogen wurden bereits verbraucht?
 		<input type="text" value="0" name="startposition"></br></br>
 		</li></ul> -->
-		
-		
+
+
 		';
 		insert_html_lines_bottom();
 } else {
 	//print_r($_POST);
-	$items=array_filter(explode(" ",$_POST["etiketten"]));
+	$items=array_filter(explode(",",str_replace(array(",", ";", "|"), ",", $_POST["etiketten"])));
 	$items=expand_array_ranges($items);
 	if (isset($_POST["type"])) {
 		$print=isset($_POST["print"]);
-		
+
 		$output="";
 		if ($_POST["type"]=="gross") {
 			die("zur zeit deaktiviert");
@@ -153,7 +154,7 @@ if (empty($_POST["etiketten"])) {
 			// kleine Etiketten für selbstklebendes Papier
 			$output=erzeuge_pdf_klein($items,$print,$_POST["startposition"]);
 		}
-		
+
 		if ($print) {
 			insert_html_lines_top();
 			echo '<p><b>Etiketten werden ausgedruckt.</b></p></br>
@@ -167,8 +168,6 @@ if (empty($_POST["etiketten"])) {
 	} else {
 
 	}
- 	
 }
-
 
 ?>
