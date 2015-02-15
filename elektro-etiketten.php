@@ -79,25 +79,42 @@ function expand_array_ranges($items) {
 function erzeuge_pdf_klein($items,$print,$startposition) {
 	// Inkscape braucht ein schreibbares HOME
 	putenv("HOME=".getcwd()."/temp");
-	unlink("./temp/output-etikettenpapier.pdf");
+	if (file_exists("./temp/output-etikettenpapier.pdf")) {
+		unlink("./temp/output-etikettenpapier.pdf");
+	}
 	#chdir("./SVG");
 	$items_str="";
 	foreach($items as $item) {
 		$items_str .= " " . $item;
 	}
-	if (preg_match('/^[0-9 ]*$/',$items_str)!==1) {
+
+	if (preg_match('/^[0-9]*$/',$items_str)===1) {
+		// internal reference
+		for ($i = 0; $i < $startposition; $i++) {
+			$items_str = "None " . $items_str;
+		}
+
+		system("./svgtemplate.py " . $items_str);
+		#chdir("../");
+		if ($print) {
+			system("lpr -P Zebra-EPL2-Label ./temp/output-etikettenpapier.pdf");
+		}
+		return "./temp/output-etikettenpapier.pdf";
+	} elseif (preg_match('/.*PO[0-9][0-9][0-9][0-9][0-9]*$/',$items_str)===1) {
+		// Bestellung
+		for ($i = 0; $i < $startposition; $i++) {
+			$items_str = "None " . $items_str;
+		}
+		#system("./svgtemplate.py " . $items_str);
+		var_dump($items_str);
+		#chdir("../");
+		if ($print) {
+			system("lpr -P Zebra-EPL2-Label ./temp/output-etikettenpapier.pdf");
+		}
+		return "./temp/output-etikettenpapier.pdf";
+	} else {
 		die("illegal character in ID");
 	}
-	for ($i=0;$i<$startposition;$i++) {
-		$items_str="None " . $items_str;
-	}
-
-	system("./svgtemplate.py ".$items_str);
-	#chdir("../");
-	if ($print) {
-		system("lpr -P Zebra-EPL2-Label ./temp/output-etikettenpapier.pdf");
-	}
-	return "./temp/output-etikettenpapier.pdf";
 }
 
 
@@ -117,8 +134,8 @@ if (empty($_POST["etiketten"])) {
 		<p>Probleme bitte an die <a href="mailto:fablab-aktive@fablab.fau.de">Mailingliste</a> oder auf <a href="https://github.com/fau-fablab/etiketten">GitHub</a> melden.</p>
 
 		<p style="margin-top:2cm"> Details:
-	<ul><li>Artikelnummern werden im ERP bei "interne Referenz" als vierstellige Zahl (mit führenden Nullen) eingetragen, z.B. <tt>0154</tt>. Die führenden Nullen können hier weggelassen werden.</li>
-	<li>Mehrere Artikelnummern durch Leerzeichen oder Komma trennen. Bereiche von Artikelnummern gehen auch: <tt>100-123</tt></li>
+	<ul><li>Artikelnummern werden im ERP bei "interne Referenz" als vierstellige Zahl (mit führenden Nullen) eingetragen, z.B. <code>0154</code>. Die führenden Nullen können hier weggelassen werden.</li>
+	<li>Mehrere Artikelnummern durch Leerzeichen oder Komma trennen. Bereiche von Artikelnummern gehen auch: <code>100-123</code></li>
 	<li>Der aufgedruckte Ort wird als Lagerort des Artikels oder der Kategorie eingetragen. (Kategorien vererben den Ort nicht an Unterkategorien!)</li>
 	<li>Die Artikelnummern können in <a href="https://eichhörnchen.fablab.fau.de">OpenERP</a> oder in der <a href="https://user.fablab.fau.de/~buildserver/pricelist/output/">Teile Übersicht</a> nachgeschaut werden.</li>
 	</ul></p>
@@ -149,7 +166,7 @@ if (empty($_POST["etiketten"])) {
 		$output="";
 		if ($_POST["type"]=="gross") {
 			die("zur zeit deaktiviert");
-			$output=erzeuge_pdf($items,$print);
+			# $output=erzeuge_pdf($items, $print);
 		} else {
 			// kleine Etiketten für selbstklebendes Papier
 			$output=erzeuge_pdf_klein($items,$print,$_POST["startposition"]);
@@ -169,5 +186,3 @@ if (empty($_POST["etiketten"])) {
 
 	}
 }
-
-?>

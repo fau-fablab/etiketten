@@ -1,12 +1,13 @@
 etiketten
 =========
 
-Etikettendruck
+Automagisierter Etikettendruck für Produkte aus dem openERP - mit Website.
 
-
+Installation
+------------
 
 ```
-sudo apt-get install python-pip
+sudo apt-get install python-pip pdftk
 sudo pip install oerplib
 ```
 

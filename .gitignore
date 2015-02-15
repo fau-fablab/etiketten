@@ -1,6 +1,7 @@
 # spezifisch
 *~
 config.ini
+temp/
 
 ####################################
 # Template für python gitignore:
@@ -61,3 +62,6 @@ docs/_build/
 
 # PyBuilder
 target/
+
+#intellij
+.idea
