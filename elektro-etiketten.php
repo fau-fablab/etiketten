@@ -92,7 +92,7 @@ function expand_array_ranges($items) {
  * generates labels in one pdf-file (uses svgtemplate.py)
  * @param $items array of product ids and purchase orders
  * @param $print (True|False) if the generated pdf should be printed directly
- * @param $start_position (???)
+ * @param $start_position Always 0 for label printers that can print each label separately. For multiple labels on one page (e.g. with 16-label sheets on a normal printer), skip the first N places (because they were already used)
  * @return string the filename of the generated pdf (relative)
  */
 function generate_pdf_small($items,$print,$start_position) {

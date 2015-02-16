@@ -145,20 +145,30 @@ def oerp_get_ids_from_order(po_id, oerp):
     :param oerp: the openERP lib instance
     :return: an array containing the openERP product IDs of a purchase
     """
-    po_prod_ids = []  # purchase order product ids (default code of all products in purchase order)
-    po_lines = []  # all article entries in purchase order
     po_id = int(po_id.lower().replace("po", ""))  # purchase order id (PO12345 -> 12345)
     try:
         po = oerp.browse('purchase.order', po_id)
     except oerplib.error.RPCError:
-        return po_prod_ids  # or return [1337] :D
+        return []
     # get all lines (= articles) of the purchase order
-    for poi in po.order_line.ids:
-        po_lines.append(oerp.browse('purchase.order.line', poi))
-    # get default_code (= product id of each 'line' = article)
-    for po_line in po_lines:
-        po_prod_ids.append(int(po_line.product_id.default_code))
-    return po_prod_ids
+    defaultCodeRegex=re.compile(r"^\d{4}$") # default code must be four-digit number with leading zeroes
+    
+    # use of oerp.browse is avoided here because it is too slow for iteratively reading fields
+    
+    # get product id of each 'line' = article
+    product_ids=[]
+    for po_line in oerp.read('purchase.order.line', po.order_line.ids,  ['product_id']):
+
+        product_ids.append(po_line['product_id'][0])
+        
+    # get default code for each product id
+    po_prod_codes = []
+    for product in oerp.read('product.product', product_ids, ['default_code']):
+        code=product['default_code']
+        print code.__repr__()
+        if code != False and defaultCodeRegex.match(code):
+            po_prod_codes.append(int(code))
+    return po_prod_codes
 
 
 def make_etikett(product_id, etikett_num, barcode, label_template, oerp):  # , dict_input
@@ -317,7 +327,8 @@ def main():
         page = deepcopy(template)
         page_num += 1
         pages.append(page_num)
-        for etikettNum in range(0, 1):
+        LABELS_PER_PAGE=1
+        for etikettNum in range(0, LABELS_PER_PAGE):
             if len(product_ids) == 0:
                 # keine weiteren Etiketten drucken
                 break
