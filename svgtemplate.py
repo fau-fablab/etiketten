@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# PYTHON_ARGCOMPLETE_OK
 
 """
 SVG Templating System (C) Max Gaukler 2013
@@ -24,13 +25,11 @@ import argcomplete
 
 # <editor-fold desc="argparse">
 parser = argparse.ArgumentParser(description='Automated generating of labels for products from the openERP')
-
-parser.add_argument('ids', metavar='ids', type=int, help='the id(s) of the product(s) to generate a label.', nargs='+')
+parser.add_argument('ids', metavar='ids', type=str, nargs='+',
+                    help='the ids of the products (4 digits) or purchase orders (PO + 5 digits) to generate a label.')
 
 argcomplete.autocomplete(parser)
-
 args = parser.parse_args()
-
 # </editor-fold>
 
 
@@ -46,7 +45,7 @@ def clear_group_members(tree, group):
 
 def make_barcode_xml_elements(string, barcode):
     """
-    erzeugt einen EAN8 barcode und gibt eine Liste von lxml-Elementen zurück
+    generates an EAN8 barcode and returns a lst of lxml-elements
     :param string: (?)
     :param barcode: (?)
     :return: a list of lxml elements
@@ -65,8 +64,8 @@ def make_barcode_xml_elements(string, barcode):
 def ean8_check_digit(num):
     """
     EAN checksum
-    gewichtete Summe: die letzte Stelle (vor der Prüfziffer) mal 3, die vorletzte mal 1, ..., addiert
-    Prüfziffer ist dann die Differenz dieser Summe zum nächsten Vielfachen von 10
+    gewichtete Summe: die letzte Stelle (vor der Pruefziffer) mal 3, die vorletzte mal 1, ..., addiert
+    Pruefziffer ist dann die Differenz dieser Summe zum naechsten Vielfachen von 10
     :param num: (?)
     :return: (?)
     """
@@ -84,7 +83,7 @@ def ean8_check_digit(num):
 
 def create_ean8(num):
     """
-    baue gültige EAN8 aus Zahl: vorne Nullen auffüllen, ggf. Prüfziffer anhängen wenn Zahl kleiner 10000,
+    baue gueltige EAN8 aus Zahl: vorne Nullen auffuellen, ggf. Pruefziffer anhaengen wenn Zahl kleiner 10000,
     mache eine EAN8 im privaten Bereich daraus: 200nnnn
     :param num: number for the barcode
     :return: (?)
@@ -105,9 +104,9 @@ def oerp_read_product(product_id, oerp):
     :return: a data dict
     """
     # produktRef='0009'
-    # ergänze führende Nullen
+    # adds leading 0
     product_id = "{:04}".format(int(product_id))
-    # print etikettId
+    # print(etikettId)
     prod_ids = oerp.search('product.product', [('default_code', '=', product_id)])
     if len(prod_ids) == 0:
         return {"TITEL": "__________", "ORT": "Fehler - nicht gefunden", "PREIS": "", "ID": product_id}
@@ -139,34 +138,57 @@ def oerp_read_product(product_id, oerp):
     return data
 
 
-def make_etikett(product_id, etikett_num, barcode, etikett_template, dict_input, oerp):
+def oerp_get_ids_from_order(po_id, oerp):
+    """
+    Fetches the product IDs of a purchase order
+    :param po_id: The openERP purchase order ID
+    :param oerp: the openERP lib instance
+    :return: an array containing the openERP product IDs of a purchase
+    """
+    po_prod_ids = []  # purchase order product ids (default code of all products in purchase order)
+    po_lines = []  # all article entries in purchase order
+    po_id = int(po_id.lower().replace("po", ""))  # purchase order id (PO12345 -> 12345)
+    try:
+        po = oerp.browse('purchase.order', po_id)
+    except oerplib.error.RPCError:
+        return po_prod_ids  # or return [1337] :D
+    # get all lines (= articles) of the purchase order
+    for poi in po.order_line.ids:
+        po_lines.append(oerp.browse('purchase.order.line', poi))
+    # get default_code (= product id of each 'line' = article)
+    for po_line in po_lines:
+        po_prod_ids.append(int(po_line.product_id.default_code))
+    return po_prod_ids
+
+
+def make_etikett(product_id, etikett_num, barcode, label_template, oerp):  # , dict_input
     """
     Generates a label with following information
     :param product_id: the openERP product ID
     :param etikett_num: the number (?) of the label
     :param barcode: the barcode (generated from the product ID (?))
-    :param etikett_template: the template for labels
-    :param dict_input: deprecated
+    :param label_template: the template for labels
     :param oerp: the openERP lib instance
     :return: a label in svg (?)
     """
-    etikett = deepcopy(etikett_template)
+    # :param dict_input: deprecated
+    etikett = deepcopy(label_template)
     etikett.set("id", "etikettGeneriert" + str(etikett_num))
 
     data = oerp_read_product(product_id, oerp)
     # data = dictInput.get(str(etikettId),{"KURZTITEL":"Error","TITEL":"Error","ID":"000"})
-    # data = deepcopy(data) # nötig damit bei mehrmaligem Ausdrucken eines Etiketts keine lustigen Effekte auftreten
+    # data = deepcopy(data) # noetig damit bei mehrmaligem Ausdrucken eines Etiketts keine lustigen Effekte auftreten
 
     # TODO Hardcoded Business logic
     # - eigentlich sollte diese Verarbeitung anderswo erfolgen und dieses Skript nur die template engine sein
-    # erzeuge String für Verkaufseinheit: "123€ pro Stück"
+    # erzeuge String fuer Verkaufseinheit: "123€ pro Stueck"
     if len(data.get("PREIS", "")) > 1:
-        # wenn der Preis numerisch ist, standardmäßig Verkaufseinheit = Stück
+        # wenn der Preis numerisch ist, standardmaeßig Verkaufseinheit = Stueck
         if len(data.get("VERKAUFSEINHEIT", "")) < 1 and re.match("[0-9]", data.get("PREIS", "")):
             data["VERKAUFSEINHEIT"] = u"Stück"
 
-        # Wenn Verkaufseinheit gesetzt, "pro ..." ergänzen
-        # außer wenn es mit "bei" anfängt, denn "pro bei" ist Schmarrn.
+        # Wenn Verkaufseinheit gesetzt, "pro ..." ergaenzen
+        # außer wenn es mit "bei" anfaengt, denn "pro bei" ist Schmarrn.
         if len(data.get("VERKAUFSEINHEIT", "")) > 0 and not data["VERKAUFSEINHEIT"].startswith("bei"):
             data["VERKAUFSEINHEIT"] = "pro " + data["VERKAUFSEINHEIT"]
     else:
@@ -177,7 +199,7 @@ def make_etikett(product_id, etikett_num, barcode, etikett_template, dict_input,
     for element in etikett.iter("*"):
         for [key, value] in data.items():
             if len(key) == 0:
-                continue  # überspringe leere keys
+                continue  # ueberspringe leere keys
             if element.tail is not None:
                 element.tail = element.tail.replace(key, value)
             if element.text is not None:
@@ -193,59 +215,63 @@ def main():
     The main class of the script: generate labels for products and produces a pdf file
     :raise Exception:
     """
-    # in welchem path liegt die svgtemplate.py Datei?
-    script_path = os.path.realpath(os.path.dirname(inspect.getfile(inspect.currentframe())))
-    # füge das pyBarcode Unterverzeichnis dem path hinzu
+
+    # <editor-fold desc="import pyBarcode">
+    script_path = os.path.realpath(os.path.dirname(inspect.getfile(inspect.currentframe())))  # path of this script
+    # adds the pyBarcode subdirectory
     sys.path.append(script_path + "/pyBarcode-0.6/")
     import barcode
+    # </editor-fold>
 
+    # <editor-fold desc="config, oerp login">
     # switching to german:
     locale.setlocale(locale.LC_ALL, "de_DE.UTF-8")
-
-    # <editor-fold desc="config">
     if not os.path.isfile('config.ini'):
-        print '[!] Please copy the config.ini.example to config.ini and edit it'
+        print('[!] Please copy the config.ini.example to config.ini and edit it.')
         sys.exit(1)
     cfg = ConfigParser({'foo': 'defaultvalue'})
     cfg.readfp(codecs.open('config.ini', 'r', 'utf8'))
 
+    use_test = cfg.get('openerp', 'use_test').lower().strip() == 'true'
+    if use_test:
+        print("[i] use testing database.")
+    database = cfg.get('openerp', 'database_test') if use_test else cfg.get('openerp', 'database')
     oerp = oerplib.OERP(server=cfg.get('openerp', 'server'), protocol='xmlrpc+ssl',
-                        database=cfg.get('openerp', 'database'), port=cfg.getint('openerp', 'port'),
+                        database=database, port=cfg.getint('openerp', 'port'),
                         version=cfg.get('openerp', 'version'))
-    # user =
+    # user = ...
     oerp.login(user=cfg.get('openerp', 'user'), passwd=cfg.get('openerp', 'password'))
     # </editor-fold>
 
-    # Load page template
+    # <editor-fold desc="load page template (for labels) and empty is">
     template = etree.parse("./vorlage-etikettenpapier-60x30.svg")
 
-    # <editor-fold desc="Vernichte alles, dessen id mit ignore endet">
+    # Vernichte alles, dessen id mit ignore endet
     for e in template.findall("*"):
         if e.get("id", "").endswith("ignore"):
             e.clear()
-    # </editor-fold>
-
     # pick out items
     # they need to be directly on the root level in the file
     # (or at least not inside a group with an applied transformation), so that position and size is correct
     etikett_template = deepcopy(template.find(".//{http://www.w3.org/2000/svg}g[@id='etikett']"))
     clear_group_members(etikett_template, 'barcode')
     clear_group_members(template, 'etikett')
+    # </editor-fold>
 
-    # template is now an empty page
-
-    ## Tab-Newline-separated data aus googledoc
+    # <editor-fold desc="Deprecated: tab-newline-separated data aus google doc">
     # url=urllib2.urlopen("https://docs.google.com/spreadsheet/pub?key=0AlfhdBG4Ni7BdFJtU2dGRDh2MFBfWHVoUEk5UlhLV3c&single=true&gid=0&output=txt")
     # textInput=url.read().decode('utf-8')
-    ## nach Array wandeln
+    ## convert to array
     # listInput=[]
     # for line in textInput.split('\n'):
     # listInput.append(line.split('\t'))
-    ## HARDCODED: die vierte Zeile enthält die Spaltennamen
+    ## HARDCODED: the fourth column contains the column name
     # columnNames=listInput[3]
-    ## Umwandeln in dictionary: {"SPALTENNAME":"Inhalt",...}
+    ## convert to dictionary: {"SPALTENNAME":"Inhalt",...}
+    # </editor-fold>
 
-    dict_input = {}
+    # <editor-fold desc="deprecated">
+    # dict_input = {}
     # for line in listInput:
     # n=0
     # d={}
@@ -253,50 +279,75 @@ def main():
     # d[columnNames[n]]=col
     # n=n+1
     # dict_input[d["ID"]]=d
-
-    # print p
+    # print(p)
     # p['list_price'] p['name'] p['description']
+    # </editor-fold>
 
-    # Etiketten-IDs werden auf der Kommandozeile angegeben
-    etikett_ids = deepcopy(sys.argv)
-    etikett_ids.pop(0)  # Argumente beginnen erst bei sys.argv[1]
+    # <editor-fold desc="evaluate input arguments and replace purchase orders with their product ids">
+    product_ids = []
+    purchase_regex = re.compile(r"^po\d{5}$")  # 'PO' or 'po' and 5 digits
+    product_regex = re.compile(r"^\d{1,4}$")  # 1 to 4 digits
+    for args_id in args.ids:
+        if purchase_regex.match(args_id.lower()) > 0:
+            prod_ids = oerp_get_ids_from_order(args_id, oerp)
+            product_ids += prod_ids  # merge
+        elif product_regex.match(args_id) > 0:
+            product_ids.append(int(args_id))
+        else:
+            print("[!] The ID '" + args_id + "' you entered is invalid.")
+            sys.exit(1)
+    # </editor-fold>
 
-    if len(etikett_ids) == 0:  # Fehler vermeiden: wenn leere Ausgabe gefordert, erzeuge eine leere Seite, statt garnix
-        etikett_ids = [None]
+    # Fehler vermeiden: wenn leere Ausgabe gefordert, erzeuge eine leere Seite, statt garnix
+    # if len(product_ids) == 0:
+    #     product_ids = [None]
 
     # Einzelseiten erzeugen
     page_num = 0
     pages = []
 
+    # <editor-fold desc="make temp dir">
     output_dir = './temp/'
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    while len(etikett_ids) > 0:
+    # </editor-fold>
+
+    while len(product_ids) > 0:
+        # <editor-fold desc="generate a svg label for the id">
         page = deepcopy(template)
         page_num += 1
         pages.append(page_num)
         for etikettNum in range(0, 1):
-            if len(etikett_ids) == 0:
-                # keine weiteren Etiketten zu drucken
+            if len(product_ids) == 0:
+                # keine weiteren Etiketten drucken
                 break
-            etikett_id = etikett_ids.pop(0)  # hole erste zu druckende ID aus der Liste
-            page.getroot().append(make_etikett(etikett_id, etikettNum, barcode, etikett_template, dict_input, oerp))
-        page.write(output_dir + ("output-etikettenpapier-%d.svg" % page_num))
+            etikett_id = product_ids.pop(0)  # hole erste zu druckende ID aus der Liste
+            page.getroot().append(make_etikett(etikett_id, etikettNum, barcode, etikett_template, oerp))  # , dict_input
+        # </editor-fold>
+        # <editor-fold desc="write svg and convert it to pdf">
         output_file_base_name = "output-etikettenpapier-%d" % page_num
+        page.write(output_dir + output_file_base_name + ".svg")
         if os.system("inkscape " + output_dir + output_file_base_name + ".svg --export-pdf=" + output_dir +
                 output_file_base_name + ".pdf") != 0:
             raise Exception("[!] Inkscape failed")
-    # append pages
+        # </editor-fold>
+
+    # <editor-fold desc="append pages (pdftk)">
     pdftk_cmd = "pdftk "
     for page_num in pages:
         pdftk_cmd += output_dir + ("output-etikettenpapier-%d.pdf " % page_num)
     pdftk_cmd += " cat output " + output_dir + "output-etikettenpapier.pdf"
     if os.system(pdftk_cmd) != 0:
         raise Exception("[!] pdftk failed")
-    # clean
+    # </editor-fold>
+
+    # <editor-fold desc="clean">
     for page_num in pages:
         os.remove(output_dir + ("output-etikettenpapier-%d.pdf" % page_num))
         os.remove(output_dir + ("output-etikettenpapier-%d.svg" % page_num))
+    # </editor-fold>
+
+    sys.exit(0)
 
 
 if __name__ == "__main__":

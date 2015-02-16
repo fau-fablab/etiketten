@@ -7,7 +7,7 @@ Installation
 ------------
 
 ```
-sudo apt-get install python-pip pdftk
+sudo apt-get install python-pip pdftk inkscape
 sudo pip install oerplib
 ```
 
