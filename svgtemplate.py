@@ -101,7 +101,7 @@ def oerp_read_product(product_id, oerp):
     Fetches the data for the requested product
     :param product_id: the openERP product ID of the requested product
     :param oerp: the openERP lib instance
-    :return: a data dict
+    :return: a data dict or an empty dict if the product couldn't be found
     """
     # produktRef='0009'
     # adds leading 0
@@ -109,7 +109,9 @@ def oerp_read_product(product_id, oerp):
     # print(etikettId)
     prod_ids = oerp.search('product.product', [('default_code', '=', product_id)])
     if len(prod_ids) == 0:
-        return {"TITEL": "__________", "ORT": "Fehler - nicht gefunden", "PREIS": "", "ID": product_id}
+        print("[!] Fehler: ID %d nicht gefunden!" % int(product_id))
+        return {}
+        # return {"TITEL": "__________", "ORT": "Fehler - nicht gefunden", "PREIS": "", "ID": product_id}
     p = oerp.read('product.product', prod_ids[0], [], context=oerp.context)
 
     ort = p['property_stock_location']
@@ -151,22 +153,21 @@ def oerp_get_ids_from_order(po_id, oerp):
     except oerplib.error.RPCError:
         return []
     # get all lines (= articles) of the purchase order
-    defaultCodeRegex=re.compile(r"^\d{4}$") # default code must be four-digit number with leading zeroes
-    
-    # use of oerp.browse is avoided here because it is too slow for iteratively reading fields
-    
-    # get product id of each 'line' = article
-    product_ids=[]
-    for po_line in oerp.read('purchase.order.line', po.order_line.ids,  ['product_id']):
+    default_code_regex = re.compile(r"^\d{4}$")  # default code must be four-digit number with leading zeroes
 
+    # use of oerp.browse is avoided here because it is too slow for iteratively reading fields
+
+    # get product id of each 'line' = article
+    product_ids = []
+    for po_line in oerp.read('purchase.order.line', po.order_line.ids, ['product_id']):
         product_ids.append(po_line['product_id'][0])
-        
+
     # get default code for each product id
     po_prod_codes = []
     for product in oerp.read('product.product', product_ids, ['default_code']):
-        code=product['default_code']
+        code = product['default_code']
         print code.__repr__()
-        if code != False and defaultCodeRegex.match(code):
+        if code is not False and default_code_regex.match(code):
             po_prod_codes.append(int(code))
     return po_prod_codes
 
@@ -179,13 +180,15 @@ def make_etikett(product_id, etikett_num, barcode, label_template, oerp):  # , d
     :param barcode: the barcode (generated from the product ID (?))
     :param label_template: the template for labels
     :param oerp: the openERP lib instance
-    :return: a label in svg (?)
+    :return: a label in svg (?) or None, when the product couldn't be found
     """
     # :param dict_input: deprecated
     etikett = deepcopy(label_template)
     etikett.set("id", "etikettGeneriert" + str(etikett_num))
 
     data = oerp_read_product(product_id, oerp)
+    if len(data) is 0:
+        return None
     # data = dictInput.get(str(etikettId),{"KURZTITEL":"Error","TITEL":"Error","ID":"000"})
     # data = deepcopy(data) # noetig damit bei mehrmaligem Ausdrucken eines Etiketts keine lustigen Effekte auftreten
 
@@ -295,14 +298,21 @@ def main():
 
     # <editor-fold desc="evaluate input arguments and replace purchase orders with their product ids">
     product_ids = []
-    purchase_regex = re.compile(r"^po\d{5}$")  # 'PO' or 'po' and 5 digits
-    product_regex = re.compile(r"^\d{1,4}$")  # 1 to 4 digits
+    purchase_regex = re.compile(r"^(\d{1,2}x)?po\d{5}$")  # (a number and 'x' and) 'PO' or 'po' and 5 digits
+    product_regex = re.compile(r"^(\d{1,2}x)?\d{1,4}$")  # (a number and 'x' and) 1 to 4 digits
     for args_id in args.ids:
+        n = 1
+        if args_id.lower()[:3].split('x', 2)[0].isdigit():
+            n = int(args_id.lower()[:3].split('x', 2)[0])
+            i = args_id.lower().find('x')
+            args_id = args_id.lower()[i + 1:]
         if purchase_regex.match(args_id.lower()) > 0:
             prod_ids = oerp_get_ids_from_order(args_id, oerp)
-            product_ids += prod_ids  # merge
+            for x in range(0, min(n, 25)):
+                product_ids += prod_ids  # merge
         elif product_regex.match(args_id) > 0:
-            product_ids.append(int(args_id))
+            for x in range(0, min(n, 25)):
+                product_ids.append(int(args_id))
         else:
             print("[!] The ID '" + args_id + "' you entered is invalid.")
             sys.exit(1)
@@ -310,7 +320,7 @@ def main():
 
     # Fehler vermeiden: wenn leere Ausgabe gefordert, erzeuge eine leere Seite, statt garnix
     # if len(product_ids) == 0:
-    #     product_ids = [None]
+    # product_ids = [None]
 
     # Einzelseiten erzeugen
     page_num = 0
@@ -327,13 +337,19 @@ def main():
         page = deepcopy(template)
         page_num += 1
         pages.append(page_num)
-        LABELS_PER_PAGE=1
-        for etikettNum in range(0, LABELS_PER_PAGE):
+        labels_per_page = 1
+        for etikettNum in range(0, labels_per_page):
             if len(product_ids) == 0:
                 # keine weiteren Etiketten drucken
                 break
             etikett_id = product_ids.pop(0)  # hole erste zu druckende ID aus der Liste
-            page.getroot().append(make_etikett(etikett_id, etikettNum, barcode, etikett_template, oerp))  # , dict_input
+            etikett_svg = make_etikett(etikett_id, etikettNum, barcode, etikett_template, oerp)  # , dict_input
+            if etikett_svg is not None:
+                page.getroot().append(etikett_svg)
+            else:
+                pages.remove(page_num)  # hart reingefrickelt
+                page_num -= 1
+                continue
         # </editor-fold>
         # <editor-fold desc="write svg and convert it to pdf">
         output_file_base_name = "output-etikettenpapier-%d" % page_num
@@ -341,7 +357,7 @@ def main():
         if os.system("inkscape " + output_dir + output_file_base_name + ".svg --export-pdf=" + output_dir +
                 output_file_base_name + ".pdf") != 0:
             raise Exception("[!] Inkscape failed")
-        # </editor-fold>
+            # </editor-fold>
 
     # <editor-fold desc="append pages (pdftk)">
     pdftk_cmd = "pdftk "
