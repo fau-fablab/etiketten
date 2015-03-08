@@ -1,3 +1,14 @@
-<Files config*>
-Deny from all
+# only allow index.php and /
+<Files index.php>
+  Order allow,deny
+  Allow from all
 </Files>
+<Files "">
+  Order allow,deny
+  Allow from all
+</Files>
+
+
+# deny everything else
+Order deny,allow
+Deny from all
