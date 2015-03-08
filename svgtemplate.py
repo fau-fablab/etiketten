@@ -115,7 +115,8 @@ def oerp_read_product(product_id, oerp):
         print("[!] Fehler: ID %d nicht gefunden!" % int(product_id))
         return {}
         # return {"TITEL": "__________", "ORT": "Fehler - nicht gefunden", "PREIS": "", "ID": product_id}
-    p = oerp.read('product.product', prod_ids[0], [], context=oerp.context)
+    # for 30% improved speed we only request certain properties and not all
+    p = oerp.read('product.product', prod_ids[0], ['property_stock_location', 'list_price', 'uom_id', 'name', 'categ_id', 'sale_ok'], context=oerp.context)
 
     ort = p['property_stock_location']
     if not ort:
@@ -131,14 +132,23 @@ def oerp_read_product(product_id, oerp):
             if ort.startswith(removePrefix):
                 ort = ort[len(removePrefix):]
 
-    if p['list_price']*1000 % 10 >= 1:  # Preis mit drei Nachkomastellen
-        formatstring = u"{:.3f} €"
+    verkaufseinheit=p['uom_id'][1]
+    if not p['sale_ok']:
+        preis=u"unverkäuflich"
+        verkaufseinheit=""
+    elif p['list_price']==0:
+        preis=u"gegen Spende"
+        verkaufseinheit=""
     else:
-        formatstring = u"{:.2f} €"
-
+        if p['list_price']*1000 % 10 >= 1:  # Preis mit drei Nachkomastellen
+            formatstring = u"{:.3f} €"
+        else:
+            formatstring = u"{:.2f} €"
+        preis=formatstring.format(p['list_price']).replace(".", ",")
+        
     data = {"TITEL": p['name'], "ORT": ort, "ID": product_id,
-            "PREIS": formatstring.format(p['list_price']).replace(".", ","),
-            "VERKAUFSEINHEIT": p['uom_id'][1]}  # p['description']
+            "PREIS": preis,
+            "VERKAUFSEINHEIT": verkaufseinheit}  # p['description']
 
     return data
 
