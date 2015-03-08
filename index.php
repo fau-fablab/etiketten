@@ -106,13 +106,13 @@ function expand_array_ranges($items) {
  * @return string the filename of the generated pdf (relative)
  */
 function generate_pdf_small($items, $print, $start_position) {
-	// <editor-fold desc="Inkscape braucht ein schreibbares HOME">
+	// Inkscape braucht ein schreibbares HOME
 	putenv("HOME=".getcwd()."/temp");
+    
 	if (file_exists("./temp/output-etikettenpapier.pdf")) {
 		unlink("./temp/output-etikettenpapier.pdf");
 	}
 	#chdir("./SVG");
-    # </editor-fold>
 	$items_str="";
 	foreach($items as $item) {
 		$items_str .= " " . $item;
@@ -138,8 +138,48 @@ function generate_pdf_small($items, $print, $start_position) {
         }
         return "./temp/output-etikettenpapier.pdf";
     } else {
-        die_friendly("illegal character in ID");
+        die_friendly("Ungültige Eingabe oder unerlaubtes Zeichen");
         return "";
+    }
+}
+
+/**
+ * Print plaintext labels
+ * @param $oneLabel True: make one big label with multiple lines
+ *                  False: multiple labels, one per text line
+ */
+function print_text_label($text,$oneLabel) {
+    // based on example code from http://php.net/manual/en/function.proc-open.php
+    $descriptorspec = array(
+       0 => array("pipe", "r"),  // stdin
+       1 => array("pipe", "w"),  // stdout
+       2 => array("pipe", "w") // stderr
+    );
+
+    $option="--multiple-labels";
+    if ($oneLabel) {
+        $option="--one-label";
+    }
+    $process = proc_open('./textlabel.py --print '.$option, $descriptorspec, $pipes);
+
+    if (!is_resource($process)) {
+        die_friendly("failed to start textlabel.py");
+    }
+    
+    
+    // write to stdin
+    fwrite($pipes[0], $text);
+    fclose($pipes[0]);
+    
+    $stdout=stream_get_contents($pipes[1]);
+    fclose($pipes[1]);
+    
+    $stderr=stream_get_contents($pipes[2]);
+    fclose($pipes[2]);
+    
+    $return_value = proc_close($process);
+    if ($return_value != 0) {
+        die_friendly("textlabel.py returned error $return_value: \n".$stdout."\n".$stderr);
     }
 }
 
@@ -160,7 +200,7 @@ if (empty($_POST["etiketten"])) {
     # <editor-fold desc="show input form">
 	insert_html_lines_top();
 
-	echo '<form action="index.php" method="post" style="text-align: center"><b>Artikel- (ERP: <code>interne Referenz</code>) oder Bestellungsnummern:</b> <br />
+	echo '<h2>Produkt-Etiketten</h2><form action="index.php" method="post" style="text-align: center"><b>Artikelnummern (ERP: „interne Referenz“) oder Bestellungsnummern:</b>    
         <input name="etiketten" type="text" style="width:80%;margin:1em;text-align: center;font-size: large" placeholder="z.B.  541 123 9001 PO12345" autocomplete="off" autofocus> <br />
 		<button type="submit" name="action" value="print">direkt Drucken</button>
 		<!--<button type="submit" name="action" value="select">Anzahl w&auml;hlen</button>-->
@@ -169,10 +209,28 @@ if (empty($_POST["etiketten"])) {
 		<input type="hidden" name="type" value="small"/>
 		<input type="hidden" name="startposition" value="0"/>
 		</form>
+<hr/>
+        <h2>Freitext-Eingabe</h2>
+        <form action="index.php" method="post" style="text-align: center"><b>Text:</b> <br />
+        <textarea name="etiketten" style="font-family:auto; width:80%;margin:1em;text-align: center;font-size: large; height:5em;" placeholder="Hier Text eingeben
+Auch mehrzeilig
 
+" autocomplete="off"></textarea><br />
+Anzahl: <input type="number" name="number" value="1" label="Anzahl"/> Stück<br/>
+		<button type="submit" name="textlabel_type" value="multiple">Drucken: mehrere Etiketten<br/> eines pro Zeile</button>
+        <button type="submit" name="textlabel_type" value="one">Drucken: alles auf ein Etikett</button>
+		<input type="hidden" name="type" value="text"/>
+        <input type="hidden" name="action" value="print"/>
+        
+		<input type="hidden" name="startposition" value="0"/>
+		</form>
+        
+        <hr/>
+        
 	    <p>Zum Drucken weiße Papier-Etiketten in den Etikettendrucker einlegen — nicht die silbernen!</p>
 	    <p>Probleme bitte an die <a href="mailto:fablab-aktive@fablab.fau.de">Mailingliste</a> oder auf <a href="https://github.com/fau-fablab/etiketten">GitHub</a> melden.</p>
 
+        
         <h3 style="margin-top:2cm">Details:</h3>
 		<p>
 	        <ul><li>Artikelnummern werden im ERP bei <code>interne Referenz</code> als vierstellige Zahl (mit führenden Nullen) eingetragen, z.B. <code>0154</code>. Die führenden Nullen können hier weggelassen werden.</li>
@@ -238,6 +296,14 @@ if (empty($_POST["etiketten"])) {
         } else if ($_POST["type"] == "small") {
             // kleine Etiketten für selbstklebendes Papier
             $output = generate_pdf_small($items, $action === 'print', $_POST["startposition"]);
+        } else if ($_POST["type"] == "text") {
+            $number=intval($_POST["number"]);
+            if (($number < 1) || ($number > 25)) {
+                die_friendly("Anzahl muss zwischen 1 und 25 liegen.");
+            }
+            for ($i=0;$i<$number;$i++) {
+                print_text_label($_POST["etiketten"],$_POST["textlabel_type"]!=="multiple");
+            }
         } else {
             die_friendly("What have you done?!?");
         }

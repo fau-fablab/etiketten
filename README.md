@@ -7,7 +7,7 @@ Installation
 ------------
 
 ```
-sudo apt-get install python-pip pdftk inkscape
+sudo apt-get install python-pip pdftk inkscape python-reportlab
 sudo pip install oerplib
 sudo pip install argcomplete
 ```
