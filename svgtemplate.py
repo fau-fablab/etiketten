@@ -22,6 +22,9 @@ import oerplib
 import argparse
 import argcomplete
 
+# caching decorator for time-intensive read functions
+from repoze.lru import lru_cache
+
 
 # <editor-fold desc="argparse">
 parser = argparse.ArgumentParser(description='Automated generating of labels for products from the openERP')
@@ -95,7 +98,7 @@ def create_ean8(num):
         num += 2000000
     return '%07d%d' % (num, ean8_check_digit(num))
 
-
+@lru_cache(1024)
 def oerp_read_product(product_id, oerp):
     """
     Fetches the data for the requested product
@@ -139,7 +142,7 @@ def oerp_read_product(product_id, oerp):
 
     return data
 
-
+@lru_cache(128)
 def oerp_get_ids_from_order(po_id, oerp):
     """
     Fetches the product IDs of a purchase order
