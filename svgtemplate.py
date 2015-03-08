@@ -128,7 +128,7 @@ def oerp_read_product(product_id, oerp):
             if ort.startswith(removePrefix):
                 ort = ort[len(removePrefix):]
 
-    if abs(0.1 % 0.01) > 0.0005:  # drei Nachkomastellen
+    if p['list_price']*1000 % 10 >= 1:  # Preis mit drei Nachkomastellen
         formatstring = u"{:.3f} €"
     else:
         formatstring = u"{:.2f} €"
@@ -301,17 +301,22 @@ def main():
     purchase_regex = re.compile(r"^(\d{1,2}x)?po\d{5}$")  # (a number and 'x' and) 'PO' or 'po' and 5 digits
     product_regex = re.compile(r"^(\d{1,2}x)?\d{1,4}$")  # (a number and 'x' and) 1 to 4 digits
     for args_id in args.ids:
-        n = 1
-        if args_id.lower()[:3].split('x', 2)[0].isdigit():
-            n = int(args_id.lower()[:3].split('x', 2)[0])
-            i = args_id.lower().find('x')
-            args_id = args_id.lower()[i + 1:]
-        if purchase_regex.match(args_id.lower()) > 0:
+        numberOfLabels = 1
+        args_id=args_id.lower()
+        if 'x' in args_id:
+            numberOfLabelsStr=args_id[:3].split('x', 2)[0]
+            assert numberOfLabelsStr.isdigit(), "invalid input"
+            # multiple labels requested: (1-25)x(product_id)
+            numberOfLabels = int(numberOfLabelsStr)
+            numberOfLabels=min(numberOfLabels, 25)
+            xPosition = args_id.find('x')
+            args_id = args_id[xPosition + 1:]
+        if purchase_regex.match(args_id) > 0:
             prod_ids = oerp_get_ids_from_order(args_id, oerp)
-            for x in range(0, min(n, 25)):
+            for x in range(0, numberOfLabels):
                 product_ids += prod_ids  # merge
         elif product_regex.match(args_id) > 0:
-            for x in range(0, min(n, 25)):
+            for x in range(0, numberOfLabels):
                 product_ids.append(int(args_id))
         else:
             print("[!] The ID '" + args_id + "' you entered is invalid.")
