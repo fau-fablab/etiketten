@@ -131,10 +131,16 @@ function generate_pdf_small($items, $print, $start_position) {
             $items_str = "None " . $items_str;
         }
 
-        system("./svgtemplate.py " . $items_str);
+        system("./svgtemplate.py " . $items_str, $ret);
+        if ( $ret != 0 ) {
+            die_friendly( "Das Erstellen der Etiketten war nicht erfolgreich. Teste, ob die Schreib- und Leseberechtigungen stimmen." );
+        }
         #chdir("../");
         if ($print) {
-            system("lpr -P Zebra-EPL2-Label ./temp/output-etikettenpapier.pdf");
+            system("lpr -P Zebra-EPL2-Label ./temp/output-etikettenpapier.pdf", $ret);
+            if ( $ret != 0 ) {
+                die_friendly("Das Drucken der Etiketten war nicht erfolgreich" );
+            }
         }
         return "./temp/output-etikettenpapier.pdf";
     } else {
@@ -145,6 +151,7 @@ function generate_pdf_small($items, $print, $start_position) {
 
 /**
  * Print plaintext labels
+ * @param $text String: Text to print on the label
  * @param $oneLabel True: make one big label with multiple lines
  *                  False: multiple labels, one per text line
  */
@@ -200,8 +207,9 @@ if (empty($_POST["etiketten"])) {
     # <editor-fold desc="show input form">
 	insert_html_lines_top();
 
-	echo '<h2>Produkt-Etiketten</h2><form action="index.php" method="post" style="text-align: center"><b>Artikelnummern (ERP: „interne Referenz“) oder Bestellungsnummern:</b>    
-        <input name="etiketten" type="text" style="width:80%;margin:1em;text-align: center;font-size: large" placeholder="z.B.  541 123 9001 PO12345" autocomplete="off" autofocus> <br />
+	echo '<h2 id="erp"><label for="erp-label-input">ERP-Etiketten</label></h2>
+        <form action="index.php" method="post" style="text-align: center"><label for="erp-label-input"><b>Artikelnummern (ERP: „interne Referenz“) oder Bestellungsnummern:</b></label>
+        <input type="text" name="etiketten" id="erp-label-input" style="width:80%;margin:1em;text-align: center;font-size: large" placeholder="z.B.  541 123 9001 PO12345" autocomplete="off" autofocus> <br />
 		<button type="submit" name="action" value="print">direkt Drucken</button>
 		<!--<button type="submit" name="action" value="select">Anzahl w&auml;hlen</button>-->
 		<!--<button type="submit" name="action" value="preview">Vorschau anzeigen</button>-->
@@ -210,35 +218,33 @@ if (empty($_POST["etiketten"])) {
 		<input type="hidden" name="startposition" value="0"/>
 		</form>
 <hr/>
-        <h2>Freitext-Eingabe</h2>
-        <form action="index.php" method="post" style="text-align: center"><b>Text:</b> <br />
-        <textarea name="etiketten" style="font-family:auto; width:80%;margin:1em;text-align: center;font-size: large; height:5em;" placeholder="Hier Text eingeben
-Auch mehrzeilig
-
-" autocomplete="off"></textarea><br />
-Anzahl: <input type="number" name="number" value="1" label="Anzahl"/> Stück<br/>
+        <h2 id="free"><label for="free-text-area">Freitext-Eingabe</label></h2>
+        <form action="index.php" method="post" style="text-align: center"><label for="free-text-area"><b>Text:</b></label> <br />
+        <textarea name="etiketten" id="free-text-area" style="width:80%;margin:1em;text-align: center;font-size: large; height:5em;" placeholder="Hier Text eingeben - Auch mehrzeilig"></textarea><br />
+        <label for="text-label-count">Anzahl:</label>
+        <input type="number" name="number" id="text-label-count" value="1" min="1" max="25"/> St&uuml;ck<br/>
 		<button type="submit" name="textlabel_type" value="multiple">Drucken: mehrere Etiketten<br/> eines pro Zeile</button>
         <button type="submit" name="textlabel_type" value="one">Drucken: alles auf ein Etikett</button>
 		<input type="hidden" name="type" value="text"/>
         <input type="hidden" name="action" value="print"/>
-        
+
 		<input type="hidden" name="startposition" value="0"/>
 		</form>
-        
+
         <hr/>
-        
+
 	    <p>Zum Drucken weiße Papier-Etiketten in den Etikettendrucker einlegen — nicht die silbernen!</p>
 	    <p>Probleme bitte an die <a href="mailto:fablab-aktive@fablab.fau.de">Mailingliste</a> oder auf <a href="https://github.com/fau-fablab/etiketten">GitHub</a> melden.</p>
 
         
-        <h3 style="margin-top:2cm">Details:</h3>
+        <h3 style="margin-top:2cm" id="details">Details (ERP-Etiketten):</h3>
 		<p>
-	        <ul><li>Artikelnummern werden im ERP bei <code>interne Referenz</code> als vierstellige Zahl (mit führenden Nullen) eingetragen, z.B. <code>0154</code>. Die führenden Nullen können hier weggelassen werden.</li>
-	        <li>Bestellungsnummern werdem im ERP unter <code>Einkauf / Angebote od. Bestellungen</code> in der &Uuml;berschrift angezeigt. Sie bestehen aus dem Pr&auml;fix <code>PO</code> und einer 5 stelligen Zahl (mit führenden Nullen).</li>
+	        <ul><li>Artikelnummern werden im ERP bei <code>interne Referenz</code> als vierstellige Zahl (mit f&uuml;hrenden Nullen) eingetragen, z.B. <code>0154</code>. Die f&uuml;hrenden Nullen k&ouml;nnen hier weggelassen werden.</li>
+	        <li>Bestellungsnummern werdem im ERP unter <code>Einkauf / Angebote od. Bestellungen</code> in der &Uuml;berschrift angezeigt. Sie bestehen aus dem Pr&auml;fix <code>PO</code> und einer 5 stelligen Zahl (mit f&uuml;hrenden Nullen).</li>
 	        <li>Mehrere Artikelnummern und Bestellungsnummern durch Leerzeichen oder Komma trennen. Bereiche von Artikelnummern gehen auch: <code>100-123</code></li>
-            <li>Einzelne Artikelnummern oder Bestellungsnummern können durch folgende Schreibweise mehrfach ausgedruckt werden: <code>5x1337</code></li>
+            <li>Einzelne Artikelnummern oder Bestellungsnummern k&ouml;nnen durch folgende Schreibweise mehrfach ausgedruckt werden: <code>5x1337</code></li>
             <li>Der aufgedruckte Ort wird als Lagerort des Artikels oder der Kategorie eingetragen. (Kategorien vererben den Ort nicht an Unterkategorien!)</li>
-	        <li>Die Artikelnummern können in <a href="https://eichhörnchen.fablab.fau.de">OpenERP</a> oder in der <a href="https://user.fablab.fau.de/~buildserver/pricelist/output/">Teile Übersicht</a> nachgeschaut werden.</li>
+	        <li>Die Artikelnummern k&ouml;nnen in <a href="https://eichhörnchen.fablab.fau.de">OpenERP</a> oder in der <a href="https://user.fablab.fau.de/~buildserver/pricelist/output/">Teile &Uuml;bersicht</a> nachgeschaut werden.</li>
 	    </ul></p>
 
 		<!-- <ul><li><b>Bitte angeben:</b> Format:
@@ -267,10 +273,11 @@ Anzahl: <input type="number" name="number" value="1" label="Anzahl"/> Stück<br/
     # simplify: '·' / 'mal' / 'times' -> 'x'
     $input_ids = str_replace(array('·', 'mal', 'times'), 'x', $input_ids);
     # <editor-fold desc="translate language ;)">
-    $input_ids = str_replace(array('ein', 'eins', 'zwei', 'drei', 'vier', 'fünf', 'sechs', 'sieben', 'acht', 'neun', 'zehn', 'elf', 'zwölf'),
-        array('1', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'), $input_ids);
+    $input_ids = str_replace(array('ein', 'eins', 'einen', 'eine', 'zwei', 'drei', 'vier', 'fünf', 'sechs', 'sieben', 'acht', 'neun', 'zehn', 'elf', 'zwölf'),
+        array('1', '1', '1', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'), $input_ids);
     $input_ids = str_replace(array('one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'),
         array('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'), $input_ids);
+    $input_ids = str_replace( array( 'bitte', 'die', 'den', 'aber', 'flott', 'schnell' ), '', $input_ids ); # ;)
     $input_ids = str_replace(array('trololol'),
         array('1337'), $input_ids);
     # </editor-fold>
@@ -312,8 +319,13 @@ Anzahl: <input type="number" name="number" value="1" label="Anzahl"/> Stück<br/
             # <editor-fold desc="print and display success message">
             insert_html_lines_top();
 
-            echo '<p><b>Etiketten werden ausgedruckt.</b></p></br>
-			<form action="index.php"><input type="submit" value="Zur&uuml;ck" autofocus=""></form>';
+            echo '<p><b>Etiketten werden ausgedruckt.</b></p></br>';
+            if( isset( $_POST['type'] ) && $_POST['type'] === 'text' ) {
+                echo '<form action="temp/textlabel.pdf"><input type="submit" value="PDF ansehen"></form>';
+            } else {
+                echo '<form action="temp/output-etikettenpapier.pdf"><input type="submit" value="PDF ansehen"></form>';
+            }
+            echo '<form action="index.php"><input type="submit" value="Zur&uuml;ck" autofocus=""></form>';
 
             insert_html_lines_bottom();
             # </editor-fold>

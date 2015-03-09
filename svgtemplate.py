@@ -29,7 +29,8 @@ from repoze.lru import lru_cache
 # <editor-fold desc="argparse">
 parser = argparse.ArgumentParser(description='Automated generating of labels for products from the openERP')
 parser.add_argument('ids', metavar='ids', type=str, nargs='+',
-                    help='the ids of the products (4 digits) or purchase orders (PO + 5 digits) to generate a label.')
+                    help='the ids of the products (4 digits) or purchase orders (PO + 5 digits) to generate a label. '
+                         'You can use expressions like 5x1337 to print 5 times the label for 1337')
 
 argcomplete.autocomplete(parser)
 args = parser.parse_args()
@@ -98,6 +99,7 @@ def create_ean8(num):
         num += 2000000
     return '%07d%d' % (num, ean8_check_digit(num))
 
+
 @lru_cache(1024)
 def oerp_read_product(product_id, oerp):
     """
@@ -116,7 +118,9 @@ def oerp_read_product(product_id, oerp):
         return {}
         # return {"TITEL": "__________", "ORT": "Fehler - nicht gefunden", "PREIS": "", "ID": product_id}
     # for 30% improved speed we only request certain properties and not all
-    p = oerp.read('product.product', prod_ids[0], ['property_stock_location', 'list_price', 'uom_id', 'name', 'categ_id', 'sale_ok'], context=oerp.context)
+    p = oerp.read('product.product', prod_ids[0],
+                  ['property_stock_location', 'list_price', 'uom_id', 'name', 'categ_id', 'sale_ok'],
+                  context=oerp.context)
 
     ort = p['property_stock_location']
     if not ort:
@@ -132,25 +136,26 @@ def oerp_read_product(product_id, oerp):
             if ort.startswith(removePrefix):
                 ort = ort[len(removePrefix):]
 
-    verkaufseinheit=p['uom_id'][1]
+    verkaufseinheit = p['uom_id'][1]
     if not p['sale_ok']:
-        preis=u"unverkäuflich"
-        verkaufseinheit=""
-    elif p['list_price']==0:
-        preis=u"gegen Spende"
-        verkaufseinheit=""
+        preis = u"unverkäuflich"
+        verkaufseinheit = ""
+    elif p['list_price'] == 0:
+        preis = u"gegen Spende"
+        verkaufseinheit = ""
     else:
-        if p['list_price']*1000 % 10 >= 1:  # Preis mit drei Nachkomastellen
+        if p['list_price'] * 1000 % 10 >= 1:  # Preis mit drei Nachkomastellen
             formatstring = u"{:.3f} €"
         else:
             formatstring = u"{:.2f} €"
-        preis=formatstring.format(p['list_price']).replace(".", ",")
-        
+        preis = formatstring.format(p['list_price']).replace(".", ",")
+
     data = {"TITEL": p['name'], "ORT": ort, "ID": product_id,
             "PREIS": preis,
             "VERKAUFSEINHEIT": verkaufseinheit}  # p['description']
 
     return data
+
 
 @lru_cache(128)
 def oerp_get_ids_from_order(po_id, oerp):
@@ -314,22 +319,22 @@ def main():
     purchase_regex = re.compile(r"^(\d{1,2}x)?po\d{5}$")  # (a number and 'x' and) 'PO' or 'po' and 5 digits
     product_regex = re.compile(r"^(\d{1,2}x)?\d{1,4}$")  # (a number and 'x' and) 1 to 4 digits
     for args_id in args.ids:
-        numberOfLabels = 1
-        args_id=args_id.lower()
+        number_of_labels = 1
+        args_id = args_id.lower()
         if 'x' in args_id:
-            numberOfLabelsStr=args_id[:3].split('x', 2)[0]
-            assert numberOfLabelsStr.isdigit(), "invalid input"
+            number_of_labels_str = args_id[:3].split('x', 2)[0]
+            assert number_of_labels_str.isdigit(), "invalid input"
             # multiple labels requested: (1-25)x(product_id)
-            numberOfLabels = int(numberOfLabelsStr)
-            numberOfLabels=min(numberOfLabels, 25)
-            xPosition = args_id.find('x')
-            args_id = args_id[xPosition + 1:]
+            number_of_labels = int(number_of_labels_str)
+            number_of_labels = min(number_of_labels, 25)
+            x_position = args_id.find('x')
+            args_id = args_id[x_position + 1:]
         if purchase_regex.match(args_id) > 0:
             prod_ids = oerp_get_ids_from_order(args_id, oerp)
-            for x in range(0, numberOfLabels):
+            for x in range(0, number_of_labels):
                 product_ids += prod_ids  # merge
         elif product_regex.match(args_id) > 0:
-            for x in range(0, numberOfLabels):
+            for x in range(0, number_of_labels):
                 product_ids.append(int(args_id))
         else:
             print("[!] The ID '" + args_id + "' you entered is invalid.")

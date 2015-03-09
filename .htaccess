@@ -1,9 +1,17 @@
-# only allow index.php and /
+# only allow index.php and / and temp/output-etikettenpapier.pdf and temp/textlabel.pdf
 <Files index.php>
   Order allow,deny
   Allow from all
 </Files>
 <Files "">
+  Order allow,deny
+  Allow from all
+</Files>
+<Files "output-etikettenpapier.pdf">
+  Order allow,deny
+  Allow from all
+</Files>
+<Files "textlabel.pdf">
   Order allow,deny
   Allow from all
 </Files>
