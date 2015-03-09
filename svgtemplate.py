@@ -198,8 +198,8 @@ def make_etikett(product_id, etikett_num, barcode, label_template, oerp):  # , d
     # :param dict_input: deprecated
     etikett = deepcopy(label_template)
     etikett.set("id", "etikettGeneriert" + str(etikett_num))
-
-    data = oerp_read_product(product_id, oerp)
+    
+    data = deepcopy(oerp_read_product(product_id, oerp)) # deepcopy is needed here because the lru_cache decorator returns the same object on cached function calls, even if it was modified
     if len(data) is 0:
         return None
     # data = dictInput.get(str(etikettId),{"KURZTITEL":"Error","TITEL":"Error","ID":"000"})
