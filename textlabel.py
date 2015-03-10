@@ -1,7 +1,10 @@
 #!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
+
 from __future__ import unicode_literals
 
+__author__ = 'Max Gaukler'
+__license__ = 'unilicense'
 
 """
 create and print labels with text, where the font is resized to maximum possible size
@@ -15,13 +18,12 @@ from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import Paragraph
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
+from xml.sax.saxutils import escape
 import reportlab.lib.enums
 import sys
 import subprocess
 import os
-
-# aaargh we should move to python3! then all codecs stuff would be unnecessary - why not? :D
-import codecs
+import codecs  # aaargh we should move to python3! then all codecs stuff would be unnecessary - why not? :D
 
 
 # the preferred solution would use KeepInFrame(method='shrink'), but at least with the code from
@@ -32,9 +34,8 @@ import codecs
 # create a PDF label with centered text of the given font size
 # raise reportlab.platypus.doctemplate.LayoutError if font size is too large to fit everything
 def make_label(text, fontsize):
-    # TODO correctly escape text - is this enough?
-    text = text.replace("<", "&lt;")
-    text = text.replace(">", "&gt;")
+    # correctly escape text - is this enough?
+    text = escape(text)
     text = text.replace("\n", "<br/>")
     width = 5.9 * cm
     height = 2.9 * cm

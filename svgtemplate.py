@@ -1,6 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
 # PYTHON_ARGCOMPLETE_OK
+
+__author__ = 'Max Gaukler, sedrubal'
+__license__ = 'unilicense'
 
 """
 SVG Templating System (C) Max Gaukler 2013
@@ -10,8 +13,6 @@ unlimited usage allowed, see LICENSE file
 
 from lxml import etree
 from copy import deepcopy
-import sys
-import os
 import inspect
 import StringIO
 import re
@@ -21,9 +22,10 @@ import codecs
 import oerplib
 import argparse
 import argcomplete
-
-# caching decorator for time-intensive read functions
-from repoze.lru import lru_cache
+import sys
+import os
+from json import dumps
+from repoze.lru import lru_cache  # caching decorator for time-intensive read functions
 
 
 # <editor-fold desc="argparse">
@@ -31,6 +33,8 @@ parser = argparse.ArgumentParser(description='Automated generating of labels for
 parser.add_argument('ids', metavar='ids', type=str, nargs='+',
                     help='the ids of the products (4 digits) or purchase orders (PO + 5 digits) to generate a label. '
                          'You can use expressions like 5x1337 to print 5 times the label for 1337')
+parser.add_argument('-n', '--no-label', action='store_false', dest='label',
+                    help='use this, if the data should be displayed to stdout and if no svg label should be created')
 
 argcomplete.autocomplete(parser)
 args = parser.parse_args()
@@ -154,6 +158,22 @@ def oerp_read_product(product_id, oerp):
             "PREIS": preis,
             "VERKAUFSEINHEIT": verkaufseinheit}  # p['description']
 
+    # TODO Hardcoded Business logic
+    # - eigentlich sollte diese Verarbeitung anderswo erfolgen und dieses Skript nur die template engine sein
+    # erzeuge String fuer Verkaufseinheit: "123€ pro Stueck"
+    if len(data.get("PREIS", "")) > 1:
+        # wenn der Preis numerisch ist, standardmaeßig Verkaufseinheit = Stueck
+        if len(data.get("VERKAUFSEINHEIT", "")) < 1 and re.match("[0-9]", data.get("PREIS", "")):
+            data["VERKAUFSEINHEIT"] = u"Stück"
+
+        # Wenn Verkaufseinheit gesetzt, "pro ..." ergaenzen
+        # außer wenn es mit "bei" anfaengt, denn "pro bei" ist Schmarrn.
+        if len(data.get("VERKAUFSEINHEIT", "")) > 0 and not data["VERKAUFSEINHEIT"].startswith("bei"):
+            data["VERKAUFSEINHEIT"] = "pro " + data["VERKAUFSEINHEIT"]
+    else:
+        # keine Einheit anzeigen, wenn Preis leer oder "-"
+        data["VERKAUFSEINHEIT"] = ""
+
     return data
 
 
@@ -184,7 +204,8 @@ def oerp_get_ids_from_order(po_id, oerp):
     po_prod_codes = []
     for product in oerp.read('product.product', product_ids, ['default_code']):
         code = product['default_code']
-        print code.__repr__()
+        if args.label:
+            print code.__repr__()
         if code is not False and default_code_regex.match(code):
             po_prod_codes.append(int(code))
     return po_prod_codes
@@ -203,28 +224,13 @@ def make_etikett(product_id, etikett_num, barcode, label_template, oerp):  # , d
     # :param dict_input: deprecated
     etikett = deepcopy(label_template)
     etikett.set("id", "etikettGeneriert" + str(etikett_num))
-    
-    data = deepcopy(oerp_read_product(product_id, oerp)) # deepcopy is needed here because the lru_cache decorator returns the same object on cached function calls, even if it was modified
+
+    # data = dictInput.get(str(etikettId),{"KURZTITEL":"Error","TITEL":"Error","ID":"000"})
+    # deepcopy is needed here because the lru_cache decorator returns the same object on cached function calls,
+    # even if it was modified
+    data = deepcopy(oerp_read_product(product_id, oerp))
     if len(data) is 0:
         return None
-    # data = dictInput.get(str(etikettId),{"KURZTITEL":"Error","TITEL":"Error","ID":"000"})
-    # data = deepcopy(data) # noetig damit bei mehrmaligem Ausdrucken eines Etiketts keine lustigen Effekte auftreten
-
-    # TODO Hardcoded Business logic
-    # - eigentlich sollte diese Verarbeitung anderswo erfolgen und dieses Skript nur die template engine sein
-    # erzeuge String fuer Verkaufseinheit: "123€ pro Stueck"
-    if len(data.get("PREIS", "")) > 1:
-        # wenn der Preis numerisch ist, standardmaeßig Verkaufseinheit = Stueck
-        if len(data.get("VERKAUFSEINHEIT", "")) < 1 and re.match("[0-9]", data.get("PREIS", "")):
-            data["VERKAUFSEINHEIT"] = u"Stück"
-
-        # Wenn Verkaufseinheit gesetzt, "pro ..." ergaenzen
-        # außer wenn es mit "bei" anfaengt, denn "pro bei" ist Schmarrn.
-        if len(data.get("VERKAUFSEINHEIT", "")) > 0 and not data["VERKAUFSEINHEIT"].startswith("bei"):
-            data["VERKAUFSEINHEIT"] = "pro " + data["VERKAUFSEINHEIT"]
-    else:
-        # keine Einheit anzeigen, wenn Preis leer oder "-"
-        data["VERKAUFSEINHEIT"] = ""
 
     # Alle Texte ersetzen
     for element in etikett.iter("*"):
@@ -239,6 +245,16 @@ def make_etikett(product_id, etikett_num, barcode, label_template, oerp):  # , d
         etikett.find(".//{http://www.w3.org/2000/svg}g[@id='barcode']").append(e)
     etikett.find(".//{http://www.w3.org/2000/svg}g[@id='barcode']").set("id", "barcode" + str(etikett_num))
     return etikett
+
+
+def print_data(product_ids, oerp):
+    data_list = list()
+    for [prod_id, count] in product_ids.items():
+        data = deepcopy(oerp_read_product(prod_id, oerp))
+        if len(data) is not 0:
+            data['COUNT'] = count
+            data_list.append(data)
+    print(dumps(data_list, sort_keys=True, indent=4, separators=(',', ': ')))  # json.dumps
 
 
 def main():
@@ -264,7 +280,7 @@ def main():
     cfg.readfp(codecs.open('config.ini', 'r', 'utf8'))
 
     use_test = cfg.get('openerp', 'use_test').lower().strip() == 'true'
-    if use_test:
+    if use_test and args.label:
         print("[i] use testing database.")
     database = cfg.get('openerp', 'database_test') if use_test else cfg.get('openerp', 'database')
     oerp = oerplib.OERP(server=cfg.get('openerp', 'server'), protocol='xmlrpc+ssl',
@@ -272,46 +288,6 @@ def main():
                         version=cfg.get('openerp', 'version'))
     # user = ...
     oerp.login(user=cfg.get('openerp', 'user'), passwd=cfg.get('openerp', 'password'))
-    # </editor-fold>
-
-    # <editor-fold desc="load page template (for labels) and empty is">
-    template = etree.parse("./vorlage-etikettenpapier-60x30.svg")
-
-    # Vernichte alles, dessen id mit ignore endet
-    for e in template.findall("*"):
-        if e.get("id", "").endswith("ignore"):
-            e.clear()
-    # pick out items
-    # they need to be directly on the root level in the file
-    # (or at least not inside a group with an applied transformation), so that position and size is correct
-    etikett_template = deepcopy(template.find(".//{http://www.w3.org/2000/svg}g[@id='etikett']"))
-    clear_group_members(etikett_template, 'barcode')
-    clear_group_members(template, 'etikett')
-    # </editor-fold>
-
-    # <editor-fold desc="Deprecated: tab-newline-separated data aus google doc">
-    # url=urllib2.urlopen("https://docs.google.com/spreadsheet/pub?key=0AlfhdBG4Ni7BdFJtU2dGRDh2MFBfWHVoUEk5UlhLV3c&single=true&gid=0&output=txt")
-    # textInput=url.read().decode('utf-8')
-    ## convert to array
-    # listInput=[]
-    # for line in textInput.split('\n'):
-    # listInput.append(line.split('\t'))
-    ## HARDCODED: the fourth column contains the column name
-    # columnNames=listInput[3]
-    ## convert to dictionary: {"SPALTENNAME":"Inhalt",...}
-    # </editor-fold>
-
-    # <editor-fold desc="deprecated">
-    # dict_input = {}
-    # for line in listInput:
-    # n=0
-    # d={}
-    # for col in line:
-    # d[columnNames[n]]=col
-    # n=n+1
-    # dict_input[d["ID"]]=d
-    # print(p)
-    # p['list_price'] p['name'] p['description']
     # </editor-fold>
 
     # <editor-fold desc="evaluate input arguments and replace purchase orders with their product ids">
@@ -340,62 +316,114 @@ def main():
             print("[!] The ID '" + args_id + "' you entered is invalid.")
             sys.exit(1)
     # </editor-fold>
-
-    # Fehler vermeiden: wenn leere Ausgabe gefordert, erzeuge eine leere Seite, statt garnix
-    # if len(product_ids) == 0:
-    # product_ids = [None]
-
-    # Einzelseiten erzeugen
-    page_num = 0
-    pages = []
-
-    # <editor-fold desc="make temp dir">
-    output_dir = './temp/'
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    # <editor-fold desc="simplify input">
+    product_ids_count = dict()
+    for prod_id in product_ids:
+        if prod_id in product_ids_count:
+            product_ids_count[prod_id] += 1
+        else:
+            product_ids_count[prod_id] = 1
     # </editor-fold>
 
-    while len(product_ids) > 0:
-        # <editor-fold desc="generate a svg label for the id">
-        page = deepcopy(template)
-        page_num += 1
-        pages.append(page_num)
-        labels_per_page = 1
-        for etikettNum in range(0, labels_per_page):
-            if len(product_ids) == 0:
-                # keine weiteren Etiketten drucken
-                break
-            etikett_id = product_ids.pop(0)  # hole erste zu druckende ID aus der Liste
-            etikett_svg = make_etikett(etikett_id, etikettNum, barcode, etikett_template, oerp)  # , dict_input
-            if etikett_svg is not None:
-                page.getroot().append(etikett_svg)
-            else:
-                pages.remove(page_num)  # hart reingefrickelt
-                page_num -= 1
-                continue
+    if args.label:
+        # TODO: use product_ids_count instead of product_ids
+        # <editor-fold desc="load page template (for labels) and empty is">
+        template = etree.parse("./vorlage-etikettenpapier-60x30.svg")
+
+        # Vernichte alles, dessen id mit ignore endet
+        for e in template.findall("*"):
+            if e.get("id", "").endswith("ignore"):
+                e.clear()
+        # pick out items
+        # they need to be directly on the root level in the file
+        # (or at least not inside a group with an applied transformation), so that position and size is correct
+        etikett_template = deepcopy(template.find(".//{http://www.w3.org/2000/svg}g[@id='etikett']"))
+        clear_group_members(etikett_template, 'barcode')
+        clear_group_members(template, 'etikett')
         # </editor-fold>
-        # <editor-fold desc="write svg and convert it to pdf">
-        output_file_base_name = "output-etikettenpapier-%d" % page_num
-        page.write(output_dir + output_file_base_name + ".svg")
-        if os.system("inkscape " + output_dir + output_file_base_name + ".svg --export-pdf=" + output_dir +
-                output_file_base_name + ".pdf") != 0:
-            raise Exception("[!] Inkscape failed")
+
+        # <editor-fold desc="Deprecated: tab-newline-separated data aus google doc">
+        # url=urllib2.urlopen("https://docs.google.com/spreadsheet/pub?key=0AlfhdBG4Ni7BdFJtU2dGRDh2MFBfWHVoUEk5UlhLV3c&single=true&gid=0&output=txt")
+        # textInput=url.read().decode('utf-8')
+        ## convert to array
+        # listInput=[]
+        # for line in textInput.split('\n'):
+        # listInput.append(line.split('\t'))
+        ## HARDCODED: the fourth column contains the column name
+        # columnNames=listInput[3]
+        ## convert to dictionary: {"SPALTENNAME":"Inhalt",...}
+        # </editor-fold>
+
+        # <editor-fold desc="deprecated">
+        # dict_input = {}
+        # for line in listInput:
+        # n=0
+        # d={}
+        # for col in line:
+        # d[columnNames[n]]=col
+        # n=n+1
+        # dict_input[d["ID"]]=d
+        # print(p)
+        # p['list_price'] p['name'] p['description']
+        # </editor-fold>
+
+        # Fehler vermeiden: wenn leere Ausgabe gefordert, erzeuge eine leere Seite, statt garnix
+        # if len(product_ids) == 0:
+        # product_ids = [None]
+
+        # Einzelseiten erzeugen
+        page_num = 0
+        pages = []
+
+        # <editor-fold desc="make temp dir">
+        output_dir = './temp/'
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        # </editor-fold>
+
+        while len(product_ids) > 0:
+            # <editor-fold desc="generate a svg label for the id">
+            page = deepcopy(template)
+            page_num += 1
+            pages.append(page_num)
+            labels_per_page = 1
+            for etikettNum in range(0, labels_per_page):
+                if len(product_ids) == 0:
+                    # keine weiteren Etiketten drucken
+                    break
+                etikett_id = product_ids.pop(0)  # hole erste zu druckende ID aus der Liste
+                etikett_svg = make_etikett(etikett_id, etikettNum, barcode, etikett_template, oerp)  # , dict_input
+                if etikett_svg is not None:
+                    page.getroot().append(etikett_svg)
+                else:
+                    pages.remove(page_num)  # hart reingefrickelt
+                    page_num -= 1
+                    continue
+            # </editor-fold>
+            # <editor-fold desc="write svg and convert it to pdf">
+            output_file_base_name = "output-etikettenpapier-%d" % page_num
+            page.write(output_dir + output_file_base_name + ".svg")
+            if os.system("inkscape " + output_dir + output_file_base_name + ".svg --export-pdf=" + output_dir +
+                    output_file_base_name + ".pdf") != 0:
+                raise Exception("[!] Inkscape failed")
             # </editor-fold>
 
-    # <editor-fold desc="append pages (pdftk)">
-    pdftk_cmd = "pdftk "
-    for page_num in pages:
-        pdftk_cmd += output_dir + ("output-etikettenpapier-%d.pdf " % page_num)
-    pdftk_cmd += " cat output " + output_dir + "output-etikettenpapier.pdf"
-    if os.system(pdftk_cmd) != 0:
-        raise Exception("[!] pdftk failed")
-    # </editor-fold>
+        # <editor-fold desc="append pages (pdftk)">
+        pdftk_cmd = "pdftk "
+        for page_num in pages:
+            pdftk_cmd += output_dir + ("output-etikettenpapier-%d.pdf " % page_num)
+        pdftk_cmd += " cat output " + output_dir + "output-etikettenpapier.pdf"
+        if os.system(pdftk_cmd) != 0:
+            raise Exception("[!] pdftk failed")
+        # </editor-fold>
 
-    # <editor-fold desc="clean">
-    for page_num in pages:
-        os.remove(output_dir + ("output-etikettenpapier-%d.pdf" % page_num))
-        os.remove(output_dir + ("output-etikettenpapier-%d.svg" % page_num))
-    # </editor-fold>
+        # <editor-fold desc="clean">
+        for page_num in pages:
+            os.remove(output_dir + ("output-etikettenpapier-%d.pdf" % page_num))
+            os.remove(output_dir + ("output-etikettenpapier-%d.svg" % page_num))
+        # </editor-fold>
+    else:
+        print_data(product_ids_count, oerp)
 
     sys.exit(0)
 
