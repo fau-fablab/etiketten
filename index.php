@@ -13,6 +13,7 @@ Public Domain / zur uneingeschränkten Verwendung freigegeben, keine Garantie f�
  * Inserts some HTML at the top of the document. This is needed for the FAU FabLab website style
  */
 function insert_html_lines_top() {
+    if ( defined('HTML_TOP') && HTML_TOP ) { return; }
 	echo '<!DOCTYPE html>
 	<html>
   <head>
@@ -44,12 +45,14 @@ function insert_html_lines_top() {
 
         <div id="content" class="content">
             <h1>Etiketten</h1>';
+    define('HTML_TOP', true);
 }
 
 /**
  * Inserts some HTML at the bottom of the document. This is needed for the FAU FabLab website style
  */
 function insert_html_lines_bottom() {
+    if ( defined('HTML_BOTTOM') && HTML_BOTTOM ) { return; }
 	echo '</div>
 	</div>
 
@@ -58,6 +61,7 @@ function insert_html_lines_bottom() {
 
     </body>
 </html>';
+    define('HTML_BOTTOM', true);
 }
 
 /**
@@ -139,8 +143,12 @@ function generate_preview_table( $items) {
                             <td>' . $prod->PREIS . '</td>
                             <td>' . $prod->VERKAUFSEINHEIT . '</td>
                             <td>' . $prod->ORT . '</td>
-                            <td><input type="number" name="count_' . $prod->ID . '" value="' . $prod->COUNT . '" max="20" min="0"></td>
-                        </tr>';
+                            <td><input type="number" name="#' . $prod->ID . '_count" value="' . $prod->COUNT . '" max="20" min="0"></td>
+                        </tr>
+                        <input type="hidden" name="#' . $prod->ID . '_titel" value="' . $prod->TITEL . '">
+                        <input type="hidden" name="#' . $prod->ID . '_preis" value="' . $prod->PREIS . '">
+                        <input type="hidden" name="#' . $prod->ID . '_verkaufseinheit" value="' . $prod->VERKAUFSEINHEIT . '">
+                        <input type="hidden" name="#' . $prod->ID . '_ort" value="' . $prod->ORT . '">';
         }
 
         echo '
@@ -152,7 +160,7 @@ function generate_preview_table( $items) {
 }
 
 /**
- * generates labels in one pdf-file (uses svgtemplate.py)
+ * generates labels in one pdf-file (uses svgtemplate.py) by product or purchase order ids
  * @param $items array of product ids and purchase orders
  * @param $print (True|False) if the generated pdf should be printed directly
  * @param $start_position int Always 0 for label printers that can print each label separately. For multiple labels on one page (e.g. with 16-label sheets on a normal printer), skip the first N places (because they were already used)
@@ -162,8 +170,8 @@ function generate_pdf_small( $items, $print, $start_position) {
 	// Inkscape braucht ein schreibbares HOME
 	putenv( "HOME=".getcwd()."/temp" );
     
-	if (file_exists( "./temp/output-etikettenpapier.pdf" )) {
-		unlink( "./temp/output-etikettenpapier.pdf" );
+	if (file_exists( './' . get_output_filename() ) ) {
+		unlink( './' . get_output_filename() );
 	}
 	#chdir( "./SVG" );
 	$items_str="";
@@ -182,12 +190,96 @@ function generate_pdf_small( $items, $print, $start_position) {
             <br>und ob eine Verbindung zum OpenERP aufgebaut werden konnte.' ) );
 
         #chdir( "../" );
-        if ( $print) {
+        if ( $print ) {
             $btn = '<form action="' . get_output_filename() . '"><input type="submit" value="PDF ansehen"></form>';
-            print_r( execute_system_command( 'lpr -P Zebra-EPL2-Label ./temp/output-etikettenpapier.pdf', '',
+            print_r( execute_system_command( 'lpr -P Zebra-EPL2-Label ./' . get_output_filename(), '',
                 'Das Drucken der Etiketten war nicht erfolgreich.<br>' . $btn ) );
         }
-        return "./temp/output-etikettenpapier.pdf";
+        return './' . get_output_filename();
+    } else {
+        die_friendly( "Ung&uuml;ltige Eingabe oder unerlaubtes Zeichen" );
+        return "";
+    }
+}
+
+/**
+ * generates labels in one pdf-file (uses svgtemplate.py) using json to provide the data for the labels
+ * @param $post array of all HTTP post variables (=$_POST)
+ * including at least 'start_position' and all '<id>_<title|preis|verkaufseinheit|ort>' variables
+ * @return string the filename of the generated pdf (relative)
+ */
+function print_pdf_from_json( $post ) {
+    // Inkscape braucht ein schreibbares HOME
+    putenv( "HOME=".getcwd()."/temp" );
+
+    if (file_exists( './' . get_output_filename() ) ) {
+        unlink( './' . get_output_filename() );
+    }
+
+    # <editor-fold desc="generate json from post">
+    $items = array();
+    if ( $post['start_position'] > 0 ) {
+        $empty_prod = new stdClass();
+        $empty_prod->ID = '';
+        $empty_prod->COUNT = $post['start_position'];
+        $items[''] = $empty_prod;
+    }
+    foreach ( $post as $k => $count_val ) {
+        if ( preg_match( '/^#\d{4}_count$/', $k ) === 1 ) {
+            // if post variable is like "#<product_id>_count". Example: "#1337_count"
+            $prod = new stdClass();
+            $prod->ID = str_pad( intval( explode( '_', substr($k, 1), 2 )[0] ), 4, '0', STR_PAD_LEFT);
+            if ( !isset( $items[$prod->ID] )
+                && preg_match( '/^\d{1,2}$/', $count_val ) === 1
+                && isset( $post['#' . $prod->ID . '_titel'] )
+                && isset( $post['#' . $prod->ID . '_preis'] )
+                && isset( $post['#' . $prod->ID . '_verkaufseinheit'] )
+                && isset( $post['#' . $prod->ID . '_ort'] ) ) {
+
+                $prod->COUNT = intval( $count_val );
+                $prod->TITEL = $post['#' . $prod->ID . '_titel'];
+                $prod->PREIS = $post['#' . $prod->ID . '_preis'];
+                $prod->VERKAUFSEINHEIT = $post['#' . $prod->ID . '_verkaufseinheit'];
+                $prod->ORT = $post['#' . $prod->ID . '_ort'];
+
+                if ( $prod->COUNT > 0 ) {
+                    if ( $prod->COUNT <= 20) {
+                        $items[$prod->ID] = $prod;
+                    } else {
+                        die_friendly( "Anzahl muss zwischen 0 und 20 liegen." );
+                    }
+                }
+            } else {
+                var_dump($prod->ID);
+                var_dump( !isset( $items[$prod->ID] ));
+                var_dump(preg_match( '/^\d{1,2}$/', $count_val ) === 1);
+                var_dump( isset( $post['#' . $prod->ID . '_titel'] ));
+                var_dump( isset( $post['#' . $prod->ID . '_preis'] ));
+                var_dump( isset( $post['#' . $prod->ID . '_verkaufseinheit'] ));
+                var_dump( isset( $post['#' . $prod->ID . '_ort'] ) );
+                die_friendly( "Ung&uuml;ltige oder unvollst&auml;ndige Eingabe" );
+            }
+        }
+    }
+    $items_str = json_encode( $items );
+
+//    header('Content-Type: application/json');
+//    print_r($items_str);
+//    exit(0);
+    # </editor-fold>
+
+    if ( strlen( $items_str ) > 5 ) {
+        # a valid json has more than 10 letters
+
+        print_r( execute_system_command( './svgtemplate.py --json-input', $items_str,
+            'Das Erstellen der Etiketten war nicht erfolgreich.
+            <br>Teste, ob die Schreib- und Leseberechtigungen stimmen.' ) );
+
+        $btn = '<form action="' . get_output_filename() . '"><input type="submit" value="PDF ansehen"></form>';
+        print_r( execute_system_command( 'lpr -P Zebra-EPL2-Label ./' . get_output_filename(), '',
+            'Das Drucken der Etiketten war nicht erfolgreich.<br>' . $btn ) );
+
+        return './' . get_output_filename();
     } else {
         die_friendly( "Ung&uuml;ltige Eingabe oder unerlaubtes Zeichen" );
         return "";
@@ -219,9 +311,9 @@ function print_text_label( $text,$oneLabel) {
 function execute_system_command( $cmd, $stdin_text = '', $error_message = '' ) {
     // based on example code from http://php.net/manual/en/function.proc-open.php
     $descriptor_spec = array(
-        0 => array( "pipe", "r" ),  // stdin
-        1 => array( "pipe", "w" ),  // stdout
-        2 => array( "pipe", "w" ) // stderr
+        0 => array( "pipe", "r" ), // stdin
+        1 => array( "pipe", "w" ), // stdout
+        2 => array( "pipe", "w" )  // stderr
     );
 
     $process = proc_open( $cmd, $descriptor_spec, $pipes);
@@ -260,7 +352,7 @@ function execute_system_command( $cmd, $stdin_text = '', $error_message = '' ) {
 function check_items_argument( $items_str ) {
     # preg_match( '/^[0-9]*$/',$items_str) === 1
     # preg_match( '/^( \d{1,4}| po\d{5}){1,50}$/', $items_str) === 1
-    return preg_match( '/^( (\d{1,2}x)?(\d{1,4}|po\d{5})){1,50}$/', $items_str) === 1;
+    return preg_match( '/^( (\d{1,2}x)?(\d{1,4}|po\d{5})){1,50}$/', $items_str ) === 1;
     // regex explanation: matches ether a number up to 4 digits (-> for product ids)
     // or a string with 'po' and a 5 digits number (-> for purchase orders)
     // in front of it there might be a up to two digit number with an 'x' (12x1337 -> "12 times 1337" )
@@ -416,7 +508,9 @@ if( empty( $_POST["action"] ) ) {
 
     $action = $_POST["action"];
 
-    if ( isset( $_POST["etiketten"] ) && !( isset( $_POST["type"] ) && $_POST["type"] === 'text' ) ) {
+    if ( isset( $_POST["etiketten"] )
+        && !( isset( $_POST["type"] ) && $_POST["type"] === 'text' )
+        && !( isset( $_POST["type"] ) && $_POST["type"] === 'print-selection' ) ) {
         $items = process_ids_input( $_POST["etiketten"] );
     }
 
@@ -426,15 +520,14 @@ if( empty( $_POST["action"] ) ) {
 
         echo '
         <form action="index.php" method="post" style="text-align: center">
-            <input type="hidden" name="etiketten" value="' . $_POST['etiketten'] . '"><!--- TODO -->
             <input type="hidden" name="type" value="' . $_POST['type'] . '">
             <input type="hidden" name="startposition" value="' . $_POST['startposition'] . '">
-            <button type="submit" name="action" value="print" style="margin:2em">Drucken</button>';
+            <button type="submit" name="action" value="print-selection" style="margin:2em">Drucken</button>';
 
         generate_preview_table( $items );
 
         echo '
-            <button type="submit" name="action" value="print" style="margin:2em" autofocus="">Drucken</button>
+            <button type="submit" name="action" value="print-selection" style="margin:2em" autofocus="">Drucken</button>
         </form>
         <form action="index.php"><input type="submit" value="Zur&uuml;ck"></form>
         ';
@@ -443,11 +536,22 @@ if( empty( $_POST["action"] ) ) {
         # </editor-fold>
     } elseif ( $action === 'print-selection' ) {
         # <editor-fold desc="print labels after the count of each label was selected in the table">
+
+        if ( $_POST['type'] === 'small' ) {
+            print_pdf_from_json( $_POST );
+        } else {
+            die_friendly( "What have you done?!?" );
+        }
+
         insert_html_lines_top();
 
         echo '<div id="developement-warning" class="error">
             <p>Achtung:</p>
             <p>Das Ausw&auml;hlen der Anzahl pro Etikett und das Drucken ist noch nicht implementiert.</p></div>';
+
+        echo '<p><b>Etiketten werden ausgedruckt.</b></p></br>';
+        echo '<form action="' . get_output_filename() . '"><input type="submit" value="PDF ansehen"></form>';
+        echo '<form action="index.php"><input type="submit" value="Zur&uuml;ck" autofocus=""></form>';
 
         insert_html_lines_bottom();
         # </editor-fold>
@@ -459,6 +563,7 @@ if( empty( $_POST["action"] ) ) {
             die_friendly( "zur Zeit deaktiviert" );
             # $output=generate_pdf( $items, $print);
         } else if ( $_POST["type"] === "small" ) {
+
             // kleine Etiketten für selbstklebendes Papier
             $output = generate_pdf_small($items, $action === 'print', $_POST["startposition"]);
         } elseif ( $_POST["type"] === "text" ) {

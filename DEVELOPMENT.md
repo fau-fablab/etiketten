@@ -56,3 +56,9 @@ Schema:
  - `number`: Anzahl der Freitext Etiketten
  - `textlabel_type`: Einstellungen für Freitext Etiketten:
     - `multiple`: Mehrere Etiketten - eins pro Zeile im Freitext Eingabefeld
+ - `#<id>_<property>`: Wenn `print-selection`, dann werden die Etiketten Daten über solche Felder übergeben. `<id>`: 4(!) stellige Produkt ID
+    - `#<id>_count`: Anzahl des zu druckenden Etiketts. Eine Zahl zwischen 0 und 20
+    - `#<id>_titel`: Name des Produkts
+    - `#<id>_preis`: Preis des Produkts (z.B. `0,13+€`)
+    - `#<id>_verkaufseinheit`: Verkaufseinheit des Produkts (z.B. `pro+Stück`)
+    - `#<id>_ort`: Lagerort des Produkts
