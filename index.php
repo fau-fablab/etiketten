@@ -69,7 +69,7 @@ function insert_html_lines_bottom() {
  * @param $items array of items and item ranges
  * @return array of expanded items
  */
-function expand_array_ranges( $items) {
+function expand_array_ranges( $items ) {
 	$items_expanded = array();
 	foreach ( $items as $i ) {
         $stroke_position = strpos( $i, "-" );
@@ -106,7 +106,7 @@ function expand_array_ranges( $items) {
  * @param $items array of product ids and purchase orders
  * @return string the html table
  */
-function generate_preview_table( $items) {
+function generate_preview_table( $items ) {
     $items_str="";
     foreach( $items as $item) {
         $items_str .= " " . $item;
@@ -115,10 +115,6 @@ function generate_preview_table( $items) {
     if ( check_items_argument( $items_str ) ) {
         $std_out = execute_system_command( './svgtemplate.py --no-label ' . $items_str );
         $products = json_decode( $std_out );
-
-        echo '<div id="developement-warning" class="error">
-            <p>Achtung:</p>
-            <p>Das Ausw&auml;hlen der Anzahl pro Etikett ist noch nicht implementiert.</p></div>';
 
         echo '
             <div id="preview" style="text-align: center">
@@ -156,6 +152,8 @@ function generate_preview_table( $items) {
                 </table>
             </div>';
 
+    } else {
+        die_friendly( "Ung&uuml;ltige Eingabe oder unerlaubtes Zeichen" );
     }
 }
 
@@ -166,7 +164,7 @@ function generate_preview_table( $items) {
  * @param $start_position int Always 0 for label printers that can print each label separately. For multiple labels on one page (e.g. with 16-label sheets on a normal printer), skip the first N places (because they were already used)
  * @return string the filename of the generated pdf (relative)
  */
-function generate_pdf_small( $items, $print, $start_position) {
+function generate_pdf_small( $items, $print, $start_position ) {
 	// Inkscape braucht ein schreibbares HOME
 	putenv( "HOME=".getcwd()."/temp" );
     
@@ -261,17 +259,17 @@ function print_pdf_from_json( $post ) {
             }
         }
     }
-    $items_str = json_encode( $items );
+    $items_json = json_encode( $items );
 
 //    header('Content-Type: application/json');
 //    print_r($items_str);
 //    exit(0);
     # </editor-fold>
 
-    if ( strlen( $items_str ) > 5 ) {
+    if ( strlen( $items_json ) > 5 ) {
         # a valid json has more than 10 letters
 
-        print_r( execute_system_command( './svgtemplate.py --json-input', $items_str,
+        print_r( execute_system_command( './svgtemplate.py --json-input', $items_json,
             'Das Erstellen der Etiketten war nicht erfolgreich.
             <br>Teste, ob die Schreib- und Leseberechtigungen stimmen.' ) );
 
@@ -292,12 +290,12 @@ function print_pdf_from_json( $post ) {
  * @param $oneLabel boolean True: make one big label with multiple lines
  *                          False: multiple labels, one per text line
  */
-function print_text_label( $text,$oneLabel) {
+function print_text_label( $text,$oneLabel ) {
     $option="--multiple-labels";
-    if ( $oneLabel) {
+    if ( $oneLabel ) {
         $option="--one-label";
     }
-    print_r( execute_system_command( './textlabel.py --print '.$option, $text) );
+    print_r( execute_system_command( './textlabel.py --print ' . $option, $text ) );
 }
 
 /**
@@ -458,8 +456,8 @@ function process_ids_input( $str_input ) {
     $input_ids = str_replace( array( 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve' ),
         array( '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12' ), $input_ids );
     $input_ids = str_replace( array( 'bitte', 'die', 'den', 'aber', 'flott', 'schnell' ), '', $input_ids ); # ;)
-    $input_ids = str_replace( array( 'trololol' ),
-        array( '1337' ), $input_ids);
+    $input_ids = str_replace( array( 'trololol', 'bestellung,nummer,', 'bestellnummer', 'bestellung' ),
+        array( '1337', 'po', 'po', 'po', 'po', 'po' ), $input_ids);
     # </editor-fold>
     # simplify: ',,,,' -> ','
     while (strpos( $input_ids, ',,' )) {
@@ -470,9 +468,11 @@ function process_ids_input( $str_input ) {
     # simplify: '12 x 1337 -> 12x1337' (because ' ' is now ',', we have to replace ',' instead of ' ' )
     $input_ids = str_replace( ',x', 'x', $input_ids);
     $input_ids = str_replace( 'x,', 'x', $input_ids);
+    # simplify: 'po ' -> 'po'
+    $input_ids = str_replace( array( 'po,' ), array( 'po' ), $input_ids);
     # creates an array containing the ids and id ranges
     $items = array_filter(explode( ",", $input_ids) );
-    return expand_array_ranges( $items);
+    return expand_array_ranges( $items );
     # </editor-fold>
 //    # <editor-fold desc="TODO Idee: simplify input">
 //    $product_ids_count = array();
@@ -518,18 +518,24 @@ if( empty( $_POST["action"] ) ) {
         # <editor-fold desc="display table to select the count of the labels">
         insert_html_lines_top();
 
-        echo '
-        <form action="index.php" method="post" style="text-align: center">
-            <input type="hidden" name="type" value="' . $_POST['type'] . '">
-            <input type="hidden" name="startposition" value="' . $_POST['startposition'] . '">
-            <button type="submit" name="action" value="print-selection" style="margin:2em">Drucken</button>';
+        if ( sizeof( $items ) > 0 ) {
+            echo '
+                <form action="index.php" method="post" style="text-align: center">
+                <input type="hidden" name="type" value="' . $_POST['type'] . '">
+                <input type="hidden" name="startposition" value="' . $_POST['startposition'] . '">
+                <button type="submit" name="action" value="print-selection" style="margin:2em">Drucken</button>';
 
-        generate_preview_table( $items );
+            generate_preview_table( $items );
 
-        echo '
-            <button type="submit" name="action" value="print-selection" style="margin:2em" autofocus="">Drucken</button>
-        </form>
-        <form action="index.php"><input type="submit" value="Zur&uuml;ck"></form>
+            echo '
+                <button type="submit" name="action" value="print-selection" style="margin:2em" autofocus="">Drucken</button>
+            </form>';
+        } else {
+            die_friendly( "Ung&uuml;ltige Eingabe oder unerlaubtes Zeichen" );
+        }
+
+
+        echo '<form action="index.php"><input type="submit" value="Zur&uuml;ck"></form>
         ';
 
         insert_html_lines_bottom();
@@ -544,10 +550,6 @@ if( empty( $_POST["action"] ) ) {
         }
 
         insert_html_lines_top();
-
-        echo '<div id="developement-warning" class="error">
-            <p>Achtung:</p>
-            <p>Das Ausw&auml;hlen der Anzahl pro Etikett und das Drucken ist noch nicht implementiert.</p></div>';
 
         echo '<p><b>Etiketten werden ausgedruckt.</b></p></br>';
         echo '<form action="' . get_output_filename() . '"><input type="submit" value="PDF ansehen"></form>';
