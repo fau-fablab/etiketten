@@ -68,15 +68,15 @@ Schema:
 
 Die `json` Daten (zwischen [`PHP`](index.php) und [`Python`](svgtemplate.py)) haben folgende Struktur:
 
-```json
+```
 {
     "<Produkt ID als String>": {
         "COUNT": <Anzahl als int>,
-        "ID": "<Produkt ID als String",
+        "ID": "<Produkt ID als String>",
         "ORT": "<Ort als String>",
-        "PREIS": ">Preis als String>",
+        "PREIS": "<Preis als String>",
         "TITEL": "<Bezeichnung als String>",
-        "VERKAUFSEINHEIT": "<Verkaufseinheit als String"
+        "VERKAUFSEINHEIT": "<Verkaufseinheit als String>"
     },
     "<nächste Produkt ID": {
         <Produkt Werte wie oben>

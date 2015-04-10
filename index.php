@@ -113,7 +113,10 @@ function generate_preview_table( $items ) {
     }
 
     if ( check_items_argument( $items_str ) ) {
-        $std_out = execute_system_command( './svgtemplate.py --no-label ' . $items_str );
+        $std_out = execute_system_command( './svgtemplate.py --json-output', $items_str,
+            'Das holen der Daten war nicht erfolgreich.
+            <br>Teste, ob es die eingegebenen Produkte und Bestellungen gibt
+            <br>und ob eine Verbindung zum OpenERP aufgebaut werden konnte.' );
         $products = json_decode( $std_out );
 
         echo '
@@ -131,8 +134,11 @@ function generate_preview_table( $items ) {
                     </thead>
                     <tbody>';
 
+        $valid_products_count = 0;
+
         foreach ( $products as $prod ) {
-            echo '
+            if ( sizeof( $prod->ID ) === 4 ) {
+                echo '
                         <tr id="' . $prod->ID . '">
                             <td>' . $prod->ID . '</td>
                             <td>' . $prod->TITEL . '</td>
@@ -145,12 +151,17 @@ function generate_preview_table( $items ) {
                         <input type="hidden" name="#' . $prod->ID . '_preis" value="' . $prod->PREIS . '">
                         <input type="hidden" name="#' . $prod->ID . '_verkaufseinheit" value="' . $prod->VERKAUFSEINHEIT . '">
                         <input type="hidden" name="#' . $prod->ID . '_ort" value="' . $prod->ORT . '">';
+                $valid_products_count++;
+            }
         }
 
         echo '
                     </tbody>
                 </table>
             </div>';
+        if ( $valid_products_count === 0 ) {
+            die_friendly( "Ung&uuml;ltige Eingabe oder unerlaubtes Zeichen" );
+        }
 
     } else {
         die_friendly( "Ung&uuml;ltige Eingabe oder unerlaubtes Zeichen" );
@@ -182,9 +193,10 @@ function generate_pdf_small( $items, $print, $start_position ) {
             $items_str = "None " . $items_str;
         }
 
-        print_r( execute_system_command( './svgtemplate.py ' . $items_str, '',
+        print_r( execute_system_command( './svgtemplate.py', $items_str,
             'Das Erstellen der Etiketten war nicht erfolgreich.
-            <br>Teste, ob die Schreib- und Leseberechtigungen stimmen
+            <br>Teste, ob es die eingegebenen Produkte und Bestellungen gibt,
+            <br>ob die Datei Schreib- und Leseberechtigungen stimmen
             <br>und ob eine Verbindung zum OpenERP aufgebaut werden konnte.' ) );
 
         #chdir( "../" );
@@ -303,10 +315,11 @@ function print_text_label( $text,$oneLabel ) {
  * It dies friendly on errors
  * @param string $cmd : the command to be executed
  * @param string $stdin_text : the stdin text to be piped to the external program
- * @param string $error_message : a message that should be displayed, if an error occurres
+ * @param string $error_message : a message that should be displayed, if an error occurs
+ * @param bool $print_error: print errors via print_r
  * @return string the stdout of the program
  */
-function execute_system_command( $cmd, $stdin_text = '', $error_message = '' ) {
+function execute_system_command( $cmd, $stdin_text = '', $error_message = '', $print_error = true ) {
     // based on example code from http://php.net/manual/en/function.proc-open.php
     $descriptor_spec = array(
         0 => array( "pipe", "r" ), // stdin
@@ -324,11 +337,14 @@ function execute_system_command( $cmd, $stdin_text = '', $error_message = '' ) {
     fwrite( $pipes[0], $stdin_text );
     fclose( $pipes[0] );
 
-    $stdout=stream_get_contents( $pipes[1] );
+    $stdout = stream_get_contents( $pipes[1] );
     fclose( $pipes[1] );
 
-    $stderr=stream_get_contents( $pipes[2] );
+    $stderr = stream_get_contents( $pipes[2] );
     fclose( $pipes[2] );
+    if ( sizeof( $stderr ) > 0 && $print_error ) {
+        print_r( '<div class="error"><p>' . $stderr . "</p></div>" );
+    }
 
     $return_value = proc_close( $process );
     if ( $return_value != 0 ) {

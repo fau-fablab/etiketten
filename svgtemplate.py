@@ -33,12 +33,17 @@ from logging import error, warning
 parser = argparse.ArgumentParser(description='Automated generating of labels for products from the openERP')
 parser.add_argument('ids', metavar='ids', type=str, nargs='*', default='',
                     help='the ids of the products (4 digits) or purchase orders (PO + 5 digits) to generate a label. '
-                         'You can use expressions like 5x1337 to print 5 times the label for 1337')
-parser.add_argument('-n', '--no-label', action='store_false', dest='label',
-                    help='use this, if the data should be displayed to stdout and if no svg label should be created')
-parser.add_argument('-j', '--json-input', action='store_true', dest='json_input',
-                    help='use this, if the data for the labels should be provided through stdin as json'
-                         ' instead of fetching it from openERP')
+                         'You can use expressions like 5x1337 to print 5 times the label for 1337. '
+                         'And you can also use stdin for ids input. '
+                         'Can\'t be used with \'json-input\'.')
+parser.add_argument('-o', '--json-output', action='store_true', dest='json_output',
+                    help='use this, if you only want to fetch the data for the labels from openERP '
+                         'and if you want to read the data as json from stdout. '
+                         'Can\'t be used with \'json-input\'.')
+parser.add_argument('-i', '--json-input', action='store_true', dest='json_input',
+                    help='use this, if the data for the labels should be provided through stdin as json '
+                         'instead of fetching it from openERP. '
+                         'Can\'t be used with \'ids\' and \'json-output\'.')
 
 argcomplete.autocomplete(parser)
 args = parser.parse_args()
@@ -245,8 +250,7 @@ def oerp_get_ids_from_order(po_id, oerp):
     po_prod_codes = []
     for product in oerp.read('product.product', product_ids, ['default_code']):
         code = product['default_code']
-        if args.label:
-            print code.__repr__()
+        warning(code.__repr__())
         if code is not False and default_code_regex.match(code):
             po_prod_codes.append(int(code))
     return po_prod_codes
@@ -279,6 +283,16 @@ def main():
     The main class of the script: generate labels for products and produces a pdf file
     :raise Exception:
     """
+    # <editor-fold desc="check arguments">
+    if args.json_input and args.json_output:
+        error("Invalid arguments. If you don't want to create a PDF-label you can't provide data through stdin.")
+        parser.print_help()
+        exit(1)
+    elif args.json_input and args.ids:
+        error("Invalid arguments. If you want to use the stdin for json data input, you mustn't provide ids.")
+        parser.print_help()
+        exit(1)
+    # </editor-fold>
 
     if not args.json_input:
         # <editor-fold desc="config, oerp login">
@@ -291,7 +305,7 @@ def main():
         cfg.readfp(codecs.open('config.ini', 'r', 'utf8'))
 
         use_test = cfg.get('openerp', 'use_test').lower().strip() == 'true'
-        if use_test and args.label:
+        if use_test:
             warning("[i] use testing database.")
         database = cfg.get('openerp', 'database_test') if use_test else cfg.get('openerp', 'database')
         oerp = oerplib.OERP(server=cfg.get('openerp', 'server'), protocol='xmlrpc+ssl',
@@ -305,7 +319,11 @@ def main():
         purchase_regex = re.compile(r"^(\d{1,2}x)?po\d{5}$")  # (a number and 'x' and) 'PO' or 'po' and 5 digits
         product_regex = re.compile(r"^(\d{1,2}x)?\d{1,4}$")  # (a number and 'x' and) 1 to 4 digits
         labels_data = dict()
-        for args_id in args.ids:
+        if len(args.ids):
+            input_ids = args.ids
+        else:
+            input_ids = read_stdin().strip().split(' ')
+        for args_id in input_ids:
             number_of_labels = 1
             args_id = args_id.lower()
             if 'x' in args_id:
@@ -320,15 +338,17 @@ def main():
                 for prod_id in prod_ids:
                     if prod_id not in labels_data.keys():
                         prod_data = deepcopy(oerp_read_product(prod_id, oerp))
-                        labels_data[prod_id] = prod_data
-                        labels_data[prod_id]['COUNT'] = number_of_labels
+                        if len(prod_data):
+                            labels_data[prod_id] = prod_data
+                            labels_data[prod_id]['COUNT'] = number_of_labels
                     else:
                         labels_data[prod_id]['COUNT'] += number_of_labels
             elif product_regex.match(args_id) > 0:
                 if args_id not in labels_data.keys():
                     prod_data = deepcopy(oerp_read_product(args_id, oerp))
-                    labels_data[args_id] = prod_data
-                    labels_data[args_id]['COUNT'] = number_of_labels
+                    if len(prod_data):
+                        labels_data[args_id] = prod_data
+                        labels_data[args_id]['COUNT'] = number_of_labels
                 else:
                     labels_data[args_id]['COUNT'] += number_of_labels
             else:
@@ -338,12 +358,8 @@ def main():
     else:
         labels_data = read_products_from_stdin()
 
-    if not args.label:
-        if args.json_input:
-            error("Invalid arguments. If you don't want to create a PDF-label you can't provide data through stdin.")
-            exit(1)
-        else:
-            print(dumps(labels_data, sort_keys=True, indent=4, separators=(',', ': ')))  # json.dumps in pretty
+    if args.json_output:
+        print(dumps(labels_data, sort_keys=True, indent=4, separators=(',', ': ')))  # json.dumps in pretty
     else:
         # <editor-fold desc="import pyBarcode">
         script_path = os.path.realpath(os.path.dirname(inspect.getfile(inspect.currentframe())))  # path of this script
