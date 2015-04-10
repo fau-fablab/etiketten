@@ -62,3 +62,47 @@ Schema:
     - `#<id>_preis`: Preis des Produkts (z.B. `0,13+€`)
     - `#<id>_verkaufseinheit`: Verkaufseinheit des Produkts (z.B. `pro+Stück`)
     - `#<id>_ort`: Lagerort des Produkts
+
+`JSON` Stuktur:
+---------------
+
+Die `json` Daten (zwischen [`PHP`](index.php) und [`Python`](svgtemplate.py)) haben folgende Struktur:
+
+```json
+{
+    "<Produkt ID als String>": {
+        "COUNT": <Anzahl als int>,
+        "ID": "<Produkt ID als String",
+        "ORT": "<Ort als String>",
+        "PREIS": ">Preis als String>",
+        "TITEL": "<Bezeichnung als String>",
+        "VERKAUFSEINHEIT": "<Verkaufseinheit als String"
+    },
+    "<nächste Produkt ID": {
+        <Produkt Werte wie oben>
+    }
+}
+```
+
+Beispiel:
+
+```json
+{
+    "0200": {
+        "COUNT": 5,
+        "ID": "0200",
+        "ORT": "kein Ort eingetragen",
+        "PREIS": "1,35 \u20ac",
+        "TITEL": "USB-Kabel A-B mini, 1.5m   ",
+        "VERKAUFSEINHEIT": "pro St\u00fcck"
+    },
+    "1337": {
+        "COUNT": 7,
+        "ID": "1337",
+        "ORT": "kein Ort eingetragen",
+        "PREIS": "0,13 \u20ac",
+        "TITEL": "Trollololololol schwarz auf wei\u00df",
+        "VERKAUFSEINHEIT": "pro St\u00fcck"
+    }
+}
+```
