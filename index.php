@@ -137,7 +137,7 @@ function generate_preview_table( $items ) {
         $valid_products_count = 0;
 
         foreach ( $products as $prod ) {
-            if ( sizeof( $prod->ID ) === 4 ) {
+            if ( strlen( $prod->ID ) === 4 ) {
                 echo '
                         <tr id="' . $prod->ID . '">
                             <td>' . $prod->ID . '</td>
