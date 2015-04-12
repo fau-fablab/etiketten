@@ -116,7 +116,7 @@ function generate_preview_table( $items ) {
     }
 
     if ( check_items_argument( $items_str ) ) {
-        $std_out = execute_system_command( './svgtemplate.py --json-output', $items_str,
+        $std_out = execute_system_command( '../svgtemplate.py --json-output', $items_str,
             'Das holen der Daten war nicht erfolgreich.
             <br>Teste, ob es die eingegebenen Produkte und Bestellungen gibt
             <br>und ob eine Verbindung zum OpenERP aufgebaut werden konnte.' );
@@ -211,7 +211,7 @@ function generate_pdf_small( $items, $print, $start_position ) {
             $items_str = "None " . $items_str;
         }
 
-        print_r( execute_system_command( './svgtemplate.py', $items_str,
+        print_r( execute_system_command( '../svgtemplate.py', $items_str,
             'Das Erstellen der Etiketten war nicht erfolgreich.
             <br>Teste, ob es die eingegebenen Produkte und Bestellungen gibt,
             <br>ob die Datei Schreib- und Leseberechtigungen stimmen
@@ -292,7 +292,7 @@ function print_pdf_from_json( $post ) {
     if ( strlen( $items_json ) > 5 ) {
         # a valid json has more than 10 letters
 
-        print_r( execute_system_command( './svgtemplate.py --json-input', $items_json,
+        print_r( execute_system_command( '../svgtemplate.py --json-input', $items_json,
             'Das Erstellen der Etiketten war nicht erfolgreich.
             <br>Teste, ob die Datei Schreib- und Leseberechtigungen stimmen.' ) );
 
@@ -313,12 +313,16 @@ function print_pdf_from_json( $post ) {
  * @param $oneLabel boolean True: make one big label with multiple lines
  *                          False: multiple labels, one per text line
  */
-function print_text_label( $text,$oneLabel ) {
+function print_text_label( $text, $oneLabel ) {
+    if ( strlen( trim( $text ) ) === 0 ) {
+        die_friendly( 'Kein Text eingegeben.' );
+    }
+
     $option="--multiple-labels";
     if ( $oneLabel ) {
         $option="--one-label";
     }
-    print_r( execute_system_command( './textlabel.py --print ' . $option, $text ) );
+    print_r( execute_system_command( '../textlabel.py --print ' . $option, $text ) );
 }
 
 /**
@@ -520,9 +524,9 @@ function process_ids_input( $str_input ) {
  */
 function get_output_filename() {
     if( isset( $_POST['type'] ) && $_POST['type'] === 'text' ) {
-        return 'temp/textlabel.pdf';
+        return './temp/textlabel.pdf';
     } else {
-        return 'temp/output-etikettenpapier.pdf';
+        return './temp/output-etikettenpapier.pdf';
     }
 }
 

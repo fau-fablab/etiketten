@@ -1,21 +1,7 @@
-# only allow index.php and / and temp/output-etikettenpapier.pdf and temp/textlabel.pdf
-<Files index.php>
-  Order allow,deny
-  Allow from all
-</Files>
-<Files "">
-  Order allow,deny
-  Allow from all
-</Files>
-<Files "output-etikettenpapier.pdf">
-  Order allow,deny
-  Allow from all
-</Files>
-<Files "textlabel.pdf">
-  Order allow,deny
-  Allow from all
-</Files>
-
+# Redirect to public/index.php
+RewriteEngine on
+RewriteCond %{REQUEST_URI} ^/$
+RewriteRule (.*) /public/index.php [R=301]
 
 # deny everything else
 Order deny,allow

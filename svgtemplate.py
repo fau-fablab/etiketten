@@ -295,15 +295,17 @@ def main():
         exit(1)
     # </editor-fold>
 
+    script_path = os.path.realpath(os.path.dirname(inspect.getfile(inspect.currentframe())))  # path of this script
+
     if not args.json_input:
         # <editor-fold desc="config, oerp login">
         # switching to german:
         locale.setlocale(locale.LC_ALL, "de_DE.UTF-8")
-        if not os.path.isfile('config.ini'):
+        if not os.path.isfile(script_path + '/config.ini'):
             error('Please copy the config.ini.example to config.ini and edit it.')
             sys.exit(1)
         cfg = ConfigParser({'foo': 'defaultvalue'})
-        cfg.readfp(codecs.open('config.ini', 'r', 'utf8'))
+        cfg.readfp(codecs.open(script_path + '/config.ini', 'r', 'utf8'))
 
         use_test = cfg.get('openerp', 'use_test').lower().strip() == 'true'
         if use_test:
@@ -371,14 +373,13 @@ def main():
         print(dumps(labels_data, sort_keys=True, indent=4, separators=(',', ': ')))  # json.dumps in pretty
     else:
         # <editor-fold desc="import pyBarcode">
-        script_path = os.path.realpath(os.path.dirname(inspect.getfile(inspect.currentframe())))  # path of this script
         # adds the pyBarcode subdirectory
         sys.path.append(script_path + "/pyBarcode-0.6/")
         import barcode
         # </editor-fold>
 
         # <editor-fold desc="load page template (for labels) and empty is">
-        template = etree.parse("./vorlage-etikettenpapier-60x30.svg")
+        template = etree.parse(script_path + "/vorlage-etikettenpapier-60x30.svg")
 
         # remove everything with an id starting with 'ignore'
         for e in template.findall("*"):
@@ -421,7 +422,7 @@ def main():
         # </editor-fold>
 
         # <editor-fold desc="make temp dir">
-        output_dir = './temp/'
+        output_dir = script_path + '/public/temp/'
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         # </editor-fold>
