@@ -11,6 +11,7 @@ with additions and redesigns by members of the FAU FabLab
 unlimited usage allowed, see LICENSE file
 """
 
+
 from lxml import etree
 from copy import deepcopy
 import inspect
@@ -164,7 +165,7 @@ def oerp_read_product(product_id, oerp):
     # print(etikettId)
     prod_ids = oerp.search('product.product', [('default_code', '=', product_id)])
     if len(prod_ids) == 0:
-        error("[!] Fehler: ID %d nicht gefunden!" % int(product_id))
+        error("ID %d nicht gefunden!" % int(product_id))
         return {}
         # return {"TITEL": "__________", "ORT": "Fehler - nicht gefunden", "PREIS": "", "ID": product_id}
     # for 30% improved speed we only request certain properties and not all
@@ -250,7 +251,7 @@ def oerp_get_ids_from_order(po_id, oerp):
     po_prod_codes = []
     for product in oerp.read('product.product', product_ids, ['default_code']):
         code = product['default_code']
-        warning(code.__repr__())
+        # warning(code.__repr__())
         if code is not False and default_code_regex.match(code):
             po_prod_codes.append(int(code))
     return po_prod_codes
@@ -299,14 +300,14 @@ def main():
         # switching to german:
         locale.setlocale(locale.LC_ALL, "de_DE.UTF-8")
         if not os.path.isfile('config.ini'):
-            error('[!] Please copy the config.ini.example to config.ini and edit it.')
+            error('Please copy the config.ini.example to config.ini and edit it.')
             sys.exit(1)
         cfg = ConfigParser({'foo': 'defaultvalue'})
         cfg.readfp(codecs.open('config.ini', 'r', 'utf8'))
 
         use_test = cfg.get('openerp', 'use_test').lower().strip() == 'true'
         if use_test:
-            warning("[i] use testing database.")
+            warning("use testing database.")
         database = cfg.get('openerp', 'database_test') if use_test else cfg.get('openerp', 'database')
         oerp = oerplib.OERP(server=cfg.get('openerp', 'server'), protocol='xmlrpc+ssl',
                             database=database, port=cfg.getint('openerp', 'port'),
@@ -336,6 +337,7 @@ def main():
             if purchase_regex.match(args_id) > 0:
                 prod_ids = oerp_get_ids_from_order(args_id, oerp)
                 for prod_id in prod_ids:
+                    prod_id = int(prod_id)
                     if prod_id not in labels_data.keys():
                         prod_data = deepcopy(oerp_read_product(prod_id, oerp))
                         if len(prod_data):
@@ -344,6 +346,7 @@ def main():
                     else:
                         labels_data[prod_id]['COUNT'] += number_of_labels
             elif product_regex.match(args_id) > 0:
+                args_id = int(args_id)
                 if args_id not in labels_data.keys():
                     prod_data = deepcopy(oerp_read_product(args_id, oerp))
                     if len(prod_data):
@@ -352,11 +355,17 @@ def main():
                 else:
                     labels_data[args_id]['COUNT'] += number_of_labels
             else:
-                error("[!] The ID '" + args_id + "' you entered is invalid.")
-                sys.exit(1)
+                error("The ID '" + args_id + "' you entered is invalid.")
+                exit(1)
         # </editor-fold>
     else:
         labels_data = read_products_from_stdin()
+        label_count = 0
+        for prod in labels_data.values():
+            label_count += prod['COUNT']
+        if label_count > 50:
+            error("Too much labels!")
+            exit(1)
 
     if args.json_output:
         print(dumps(labels_data, sort_keys=True, indent=4, separators=(',', ': ')))  # json.dumps in pretty
@@ -387,13 +396,13 @@ def main():
         # <editor-fold desc="tab-newline-separated data aus google doc">
         # url=urllib2.urlopen("https://docs.google.com/spreadsheet/pub?key=0AlfhdBG4Ni7BdFJtU2dGRDh2MFBfWHVoUEk5UlhLV3c&single=true&gid=0&output=txt")
         # textInput=url.read().decode('utf-8')
-        ## convert to array
+        # # convert to array
         # listInput=[]
         # for line in textInput.split('\n'):
         # listInput.append(line.split('\t'))
-        ## HARDCODED: the fourth column contains the column name
+        # # HARDCODED: the fourth column contains the column name
         # columnNames=listInput[3]
-        ## convert to dictionary: {"SPALTENNAME":"Inhalt",...}
+        # # convert to dictionary: {"SPALTENNAME":"Inhalt",...}
         # </editor-fold>
         # dict_input = {}
         # for line in listInput:
@@ -432,8 +441,8 @@ def main():
                     page.write(output_dir + output_file_base_name + ".svg")
                     # TODO: use subprocess.check_output instead of os.system
                     if os.system("inkscape " + output_dir + output_file_base_name + ".svg --export-pdf=" + output_dir +
-                            output_file_base_name + ".pdf") != 0:
-                        raise Exception("[!] Inkscape failed")
+                                 output_file_base_name + ".pdf") != 0:
+                        raise Exception("Inkscape failed")
                     # </editor-fold>
                     pdftk_cmd += output_dir + ("output-etikettenpapier-%d.pdf " % page_count)
                     page_count += 1
@@ -442,11 +451,11 @@ def main():
         # <editor-fold desc="append pages (pdftk)"
         pdftk_cmd += " cat output " + output_dir + "output-etikettenpapier.pdf"
         if os.system(pdftk_cmd) != 0:
-            raise Exception("[!] pdftk failed")
+            raise Exception("pdftk failed")
         # </editor-fold>
 
         # <editor-fold desc="clean">
-        for p in range(page_count - 1):
+        for p in range(page_count):
             os.remove(output_dir + ("output-etikettenpapier-%d.pdf" % p))
             os.remove(output_dir + ("output-etikettenpapier-%d.svg" % p))
         # </editor-fold>
@@ -480,7 +489,7 @@ def main():
         #     page.write(output_dir + output_file_base_name + ".svg")
         #     if os.system("inkscape " + output_dir + output_file_base_name + ".svg --export-pdf=" + output_dir +
         #             output_file_base_name + ".pdf") != 0:
-        #         raise Exception("[!] Inkscape failed")
+        #         raise Exception("Inkscape failed")
         #     # </editor-fold>
         #
         # # <editor-fold desc="append pages (pdftk)">
@@ -489,7 +498,7 @@ def main():
         #     pdftk_cmd += output_dir + ("output-etikettenpapier-%d.pdf " % page_num)
         # pdftk_cmd += " cat output " + output_dir + "output-etikettenpapier.pdf"
         # if os.system(pdftk_cmd) != 0:
-        #     raise Exception("[!] pdftk failed")
+        #     raise Exception("pdftk failed")
         # # </editor-fold>
         #
         # # <editor-fold desc="clean">
@@ -499,7 +508,7 @@ def main():
         # # </editor-fold>
         # </editor-fold>
 
-    sys.exit(0)
+    exit(0)
 
 
 if __name__ == "__main__":

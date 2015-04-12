@@ -14,6 +14,9 @@ Public Domain / zur uneingeschr√§nkten Verwendung freigegeben, keine Garantie f√
  */
 function insert_html_lines_top() {
     if ( defined('HTML_TOP') && HTML_TOP ) { return; }
+    header( 'X-Content-Type-Options: nosniff', true );
+    header( 'X-Frame-Options: sameorigin', true );
+    header( 'X-XSS-Protection: 1; mode=block' , true );
 	echo '<!DOCTYPE html>
 	<html>
   <head>
@@ -119,6 +122,29 @@ function generate_preview_table( $items ) {
             <br>und ob eine Verbindung zum OpenERP aufgebaut werden konnte.' );
         $products = json_decode( $std_out );
 
+        $products_clean = $products;
+        //clean products
+        foreach ( $products as $id => $prod ) {
+            if ( preg_match( '/^\d{1,4}$/', $prod->ID ) !== 1 ) {
+                unset( $products_clean->$id );
+            }
+            if ( preg_match( '/^\d{1,2}$/', $prod->COUNT ) !== 1 ) {
+                unset( $products_clean->$id );
+            } elseif ( intval(  $prod->COUNT ) > 20 || intval(  $prod->COUNT ) < 0 ) {
+                $products_clean->$id->COUNT = min( 20, max( 0, intval(  $prod->COUNT ) ) );
+            }
+            $products_clean->$id->TITEL = htmlspecialchars( $prod->TITEL );
+            $products_clean->$id->PREIS = htmlspecialchars( $prod->PREIS );
+            $products_clean->$id->VERKAUFSEINHEIT = htmlspecialchars( $prod->VERKAUFSEINHEIT );
+            $products_clean->$id->ORT = htmlspecialchars( $prod->ORT );
+        }
+        $products = $products_clean;
+
+        if ( count( (array) $products ) === 0 ) {
+            die_friendly( "Ung&uuml;ltige Eingabe oder unerlaubtes Zeichen. Pr&uuml;fe, ob alle gew&uuml;nschten Produkte existieren." );
+        }
+        // it's impossible to print more than 20 labels, because the regex grabs this.
+
         echo '
             <div id="preview" style="text-align: center">
                 <table id="preview-table" style="margin: auto">
@@ -134,34 +160,26 @@ function generate_preview_table( $items ) {
                     </thead>
                     <tbody>';
 
-        $valid_products_count = 0;
-
         foreach ( $products as $prod ) {
-            if ( sizeof( $prod->ID ) === 4 ) {
-                echo '
-                        <tr id="' . $prod->ID . '">
-                            <td>' . $prod->ID . '</td>
-                            <td>' . $prod->TITEL . '</td>
-                            <td>' . $prod->PREIS . '</td>
-                            <td>' . $prod->VERKAUFSEINHEIT . '</td>
-                            <td>' . $prod->ORT . '</td>
-                            <td><input type="number" name="#' . $prod->ID . '_count" value="' . $prod->COUNT . '" max="20" min="0"></td>
-                        </tr>
-                        <input type="hidden" name="#' . $prod->ID . '_titel" value="' . $prod->TITEL . '">
-                        <input type="hidden" name="#' . $prod->ID . '_preis" value="' . $prod->PREIS . '">
-                        <input type="hidden" name="#' . $prod->ID . '_verkaufseinheit" value="' . $prod->VERKAUFSEINHEIT . '">
-                        <input type="hidden" name="#' . $prod->ID . '_ort" value="' . $prod->ORT . '">';
-                $valid_products_count++;
-            }
+            echo '
+                    <tr id="' . $prod->ID . '">
+                        <td>' . $prod->ID . '</td>
+                        <td>' . $prod->TITEL . '</td>
+                        <td>' . $prod->PREIS . '</td>
+                        <td>' . $prod->VERKAUFSEINHEIT . '</td>
+                        <td>' . $prod->ORT . '</td>
+                        <td><input type="number" name="#' . $prod->ID . '_count" value="' . $prod->COUNT . '" max="20" min="0"></td>
+                    </tr>
+                    <input type="hidden" name="#' . $prod->ID . '_titel" value="' . $prod->TITEL . '">
+                    <input type="hidden" name="#' . $prod->ID . '_preis" value="' . $prod->PREIS . '">
+                    <input type="hidden" name="#' . $prod->ID . '_verkaufseinheit" value="' . $prod->VERKAUFSEINHEIT . '">
+                    <input type="hidden" name="#' . $prod->ID . '_ort" value="' . $prod->ORT . '">';
         }
 
         echo '
                     </tbody>
                 </table>
             </div>';
-        if ( $valid_products_count === 0 ) {
-            die_friendly( "Ung&uuml;ltige Eingabe oder unerlaubtes Zeichen" );
-        }
 
     } else {
         die_friendly( "Ung&uuml;ltige Eingabe oder unerlaubtes Zeichen" );
@@ -228,7 +246,7 @@ function print_pdf_from_json( $post ) {
 
     # <editor-fold desc="generate json from post">
     $items = array();
-    if ( $post['start_position'] > 0 ) {
+    if ( isset( $post['start_position'] ) && $post['start_position'] > 0 ) {
         $empty_prod = new stdClass();
         $empty_prod->ID = '';
         $empty_prod->COUNT = $post['start_position'];
@@ -260,13 +278,6 @@ function print_pdf_from_json( $post ) {
                     }
                 }
             } else {
-                var_dump($prod->ID);
-                var_dump( !isset( $items[$prod->ID] ));
-                var_dump(preg_match( '/^\d{1,2}$/', $count_val ) === 1);
-                var_dump( isset( $post['#' . $prod->ID . '_titel'] ));
-                var_dump( isset( $post['#' . $prod->ID . '_preis'] ));
-                var_dump( isset( $post['#' . $prod->ID . '_verkaufseinheit'] ));
-                var_dump( isset( $post['#' . $prod->ID . '_ort'] ) );
                 die_friendly( "Ung&uuml;ltige oder unvollst&auml;ndige Eingabe" );
             }
         }
@@ -283,7 +294,7 @@ function print_pdf_from_json( $post ) {
 
         print_r( execute_system_command( './svgtemplate.py --json-input', $items_json,
             'Das Erstellen der Etiketten war nicht erfolgreich.
-            <br>Teste, ob die Schreib- und Leseberechtigungen stimmen.' ) );
+            <br>Teste, ob die Datei Schreib- und Leseberechtigungen stimmen.' ) );
 
         $btn = '<form action="' . get_output_filename() . '"><input type="submit" value="PDF ansehen"></form>';
         print_r( execute_system_command( 'lpr -P Zebra-EPL2-Label ./' . get_output_filename(), '',
@@ -342,8 +353,8 @@ function execute_system_command( $cmd, $stdin_text = '', $error_message = '', $p
 
     $stderr = stream_get_contents( $pipes[2] );
     fclose( $pipes[2] );
-    if ( sizeof( $stderr ) > 0 && $print_error ) {
-        print_r( '<div class="error"><p>' . $stderr . "</p></div>" );
+    if ( strlen( trim( $stderr ) ) > 0 && $print_error ) {
+        print_r( '<div class="error"><p>' . str_replace( PHP_EOL, '<br />', $stderr ) . "</p></div>" );
     }
 
     $return_value = proc_close( $process );
@@ -453,7 +464,7 @@ function die_friendly( $message ) {
  * @return array containing one entry per id (this is also possible <number>x<id>)
  */
 function process_ids_input( $str_input ) {
-    if ( ! sizeof( $str_input ) ) {
+    if ( ! strlen( $str_input ) ) {
         die_friendly( 'Die Eingabe war leer.' );
     }
     # <editor-fold desc="evaluate POST["etiketten"] input">
@@ -534,7 +545,8 @@ if( empty( $_POST["action"] ) ) {
         # <editor-fold desc="display table to select the count of the labels">
         insert_html_lines_top();
 
-        if ( sizeof( $items ) > 0 ) {
+        if ( sizeof( $items ) > 0 && isset( $_POST['startposition'] ) && isset( $_POST['type'] ) ) {
+            // require the post variables to make it more difficult to send bad post request
             echo '
                 <form action="index.php" method="post" style="text-align: center">
                 <input type="hidden" name="type" value="' . $_POST['type'] . '">
@@ -559,7 +571,7 @@ if( empty( $_POST["action"] ) ) {
     } elseif ( $action === 'print-selection' ) {
         # <editor-fold desc="print labels after the count of each label was selected in the table">
 
-        if ( $_POST['type'] === 'small' ) {
+        if ( isset( $_POST['type'] ) && $_POST['type'] === 'small' && isset( $_POST['startposition'] ) ) {
             print_pdf_from_json( $_POST );
         } else {
             die_friendly( "What have you done?!?" );
