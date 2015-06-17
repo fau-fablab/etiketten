@@ -173,36 +173,40 @@ def oerp_read_product(product_id, oerp):
                   ['property_stock_location', 'list_price', 'uom_id', 'name', 'categ_id', 'sale_ok'],
                   context=oerp.context)
 
-    ort = p['property_stock_location']
-    if not ort:
-        # kein Ort direkt im Produkt festgelegt. versuche Ort aus Kategorie abzurufen
+    location = p['property_stock_location']
+    if not location:
+        # fall back to category's location like OERP storage module does
         c = oerp.read('product.category', p['categ_id'][0], [], context=oerp.context)
-        ort = c['property_stock_location']
-    if not ort:
-        # keinerlei Ort festgelegt :(
-        ort = "kein Ort eingetragen"
-    else:
-        ort = ort[1]
+        location = c['property_stock_location']
+    if location:
+        location_id = location[0]
+        location_string = location[1]
+        location = oerp.read('stock.location', location_id)
+        if location['code']:
+            location_string += u" ({})".format(location['code'])
         for removePrefix in [u"tats\xe4chliche Lagerorte  / FAU FabLab / ", u"tats\xe4chliche Lagerorte  / "]:
-            if ort.startswith(removePrefix):
-                ort = ort[len(removePrefix):]
+            if location_string.startswith(removePrefix):
+                location_string = location_string[len(removePrefix):]
+    else:
+        # no location set at all
+        location_string = "kein Ort eingetragen"
 
     verkaufseinheit = p['uom_id'][1]
     if not p['sale_ok']:
-        preis = u"unverkäuflich"
+        price = u"unverkäuflich"
         verkaufseinheit = ""
     elif p['list_price'] == 0:
-        preis = u"gegen Spende"
+        price = u"gegen Spende"
         verkaufseinheit = ""
     else:
         if p['list_price'] * 1000 % 10 >= 1:  # Preis mit drei Nachkomastellen
             formatstring = u"{:.3f} €"
         else:
             formatstring = u"{:.2f} €"
-        preis = formatstring.format(p['list_price']).replace(".", ",")
+        price = formatstring.format(p['list_price']).replace(".", ",")
 
-    data = {"TITEL": p['name'], "ORT": ort, "ID": product_id,
-            "PREIS": preis,
+    data = {"TITEL": p['name'], "ORT": location_string, "ID": product_id,
+            "PREIS": price,
             "VERKAUFSEINHEIT": verkaufseinheit}  # p['description']
 
     # TODO Hardcoded Business logic
