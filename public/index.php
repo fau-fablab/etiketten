@@ -397,7 +397,7 @@ function show_input_form() {
     insert_html_lines_top();
 
     echo '<h2 id="erp"><label for="erp-label-input">ERP-Etiketten</label></h2>
-        <form action="index.php" method="post" style="text-align: center"><label for="erp-label-input"><b>Artikelnummern (ERP: „interne Referenz“) oder Bestellungsnummern:</b></label>
+        <form action="index.php" method="post" style="text-align: center"><label for="erp-label-input"><b>Artikelnummern (ERP: „interne Referenz“) oder Bestellungsnummern:</b></label><br />
             <input type="text" name="etiketten" id="erp-label-input" style="width:80%;margin:1em;text-align: center;font-size: large" placeholder="z.B.  541 123 9001 PO12345" autocomplete="off" autofocus> <br />
             <button type="submit" name="action" value="print">direkt Drucken</button>
             <button type="submit" name="action" value="select">Anzahl w&auml;hlen</button>
