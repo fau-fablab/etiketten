@@ -1,8 +1,2 @@
-# Redirect to public/index.php
-RewriteEngine on
-RewriteCond %{REQUEST_URI} ^/$
-RewriteRule (.*) /public/index.php [R=301]
-
-# deny everything else
-Order deny,allow
-Deny from all
+# Redirect to public
+RedirectMatch ^/etiketten/?$ /etiketten/public/
