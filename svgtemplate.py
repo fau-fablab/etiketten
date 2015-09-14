@@ -170,7 +170,7 @@ def oerp_read_product(product_id, oerp):
         # return {"TITEL": "__________", "ORT": "Fehler - nicht gefunden", "PREIS": "", "ID": product_id}
     # for 30% improved speed we only request certain properties and not all
     p = oerp.read('product.product', prod_ids[0],
-                  ['property_stock_location', 'list_price', 'uom_id', 'name', 'categ_id', 'sale_ok'],
+                  ['property_stock_location', 'lst_price', 'uom_id', 'name', 'categ_id', 'sale_ok'],
                   context=oerp.context)
 
     location = p['property_stock_location']
@@ -195,15 +195,15 @@ def oerp_read_product(product_id, oerp):
     if not p['sale_ok']:
         price = u"unverkäuflich"
         verkaufseinheit = ""
-    elif p['list_price'] == 0:
+    elif p['lst_price'] == 0:
         price = u"gegen Spende"
         verkaufseinheit = ""
     else:
-        if p['list_price'] * 1000 % 10 >= 1:  # Preis mit drei Nachkomastellen
+        if p['lst_price'] * 1000 % 10 >= 1:  # Preis mit drei Nachkomastellen
             formatstring = u"{:.3f} €"
         else:
             formatstring = u"{:.2f} €"
-        price = formatstring.format(p['list_price']).replace(".", ",")
+        price = formatstring.format(p['lst_price']).replace(".", ",")
 
     data = {"TITEL": p['name'], "ORT": location_string, "ID": product_id,
             "PREIS": price,
@@ -418,7 +418,7 @@ def main():
         # n=n+1
         # dict_input[d["ID"]]=d
         # print(p)
-        # p['list_price'] p['name'] p['description']
+        # p['lst_price'] p['name'] p['description']
 
         # Fehler vermeiden: wenn leere Ausgabe gefordert, erzeuge eine leere Seite, statt garnix
         # if len(product_ids) == 0:
