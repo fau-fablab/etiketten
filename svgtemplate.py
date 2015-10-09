@@ -2,15 +2,11 @@
 # -*- coding: utf-8 -*-
 # PYTHON_ARGCOMPLETE_OK
 
-__author__ = 'Max Gaukler, sedrubal'
-__license__ = 'unilicense'
-
 """
 SVG Templating System (C) Max Gaukler 2013
 with additions and redesigns by members of the FAU FabLab
 unlimited usage allowed, see LICENSE file
 """
-
 
 from lxml import etree
 from copy import deepcopy
@@ -29,6 +25,8 @@ from json import loads, dumps
 from repoze.lru import lru_cache  # caching decorator for time-intensive read functions
 from logging import error, warning
 
+__author__ = 'Max Gaukler, sedrubal'
+__license__ = 'unilicense'
 
 # <editor-fold desc="argparse">
 parser = argparse.ArgumentParser(description='Automated generating of labels for products from the openERP')
@@ -84,8 +82,9 @@ def make_barcode_xml_elements(string, barcode):
 def ean8_check_digit(num):
     """
     EAN checksum
-    gewichtete Summe: die letzte Stelle (vor der Pruefziffer) mal 3, die vorletzte mal 1, ..., addiert
-    Pruefziffer ist dann die Differenz dieser Summe zum naechsten Vielfachen von 10
+    gewichtete Summe: die letzte Stelle (vor der Pruefziffer) mal 3,
+    die vorletzte mal 1, ..., addiert Pruefziffer ist dann die Differenz
+    dieser Summe zum naechsten Vielfachen von 10
     :param num: (?)
     :return: (?)
     """
@@ -103,7 +102,8 @@ def ean8_check_digit(num):
 
 def create_ean8(num):
     """
-    baue gueltige EAN8 aus Zahl: vorne Nullen auffuellen, ggf. Pruefziffer anhaengen wenn Zahl kleiner 10000,
+    baue gueltige EAN8 aus Zahl: vorne Nullen auffuellen,
+    ggf. Pruefziffer anhaengen wenn Zahl kleiner 10000,
     mache eine EAN8 im privaten Bereich daraus: 200nnnn
     :param num: number for the barcode
     :return: (?)
