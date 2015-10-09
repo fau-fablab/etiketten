@@ -21,6 +21,7 @@ import argparse
 import argcomplete
 import sys
 import os
+import subprocess
 from json import loads, dumps
 from repoze.lru import lru_cache  # caching decorator for time-intensive read functions
 from logging import error, warning
@@ -444,10 +445,10 @@ def main():
                     # <editor-fold desc="write svg and convert it to pdf">
                     output_file_base_name = "output-etikettenpapier-%d" % page_count
                     page.write(output_dir + output_file_base_name + ".svg")
-                    # TODO: use subprocess.check_output instead of os.system
-                    if os.system("inkscape " + output_dir + output_file_base_name + ".svg --export-pdf=" + output_dir +
-                                 output_file_base_name + ".pdf") != 0:
-                        raise Exception("Inkscape failed")
+                    subprocess.check_call("inkscape {in_file} --export-pdf={out_file}".format(
+                        in_file=output_dir + output_file_base_name + ".svg",
+                        out_file=output_dir + output_file_base_name + ".pdf"
+                    ), shell=True)
                     # </editor-fold>
                     pdftk_cmd += output_dir + ("output-etikettenpapier-%d.pdf " % page_count)
                     page_count += 1
@@ -455,8 +456,7 @@ def main():
 
         # <editor-fold desc="append pages (pdftk)"
         pdftk_cmd += " cat output " + output_dir + "output-etikettenpapier.pdf"
-        if os.system(pdftk_cmd) != 0:
-            raise Exception("pdftk failed")
+        subprocess.check_call(pdftk_cmd, shell=True)
         # </editor-fold>
 
         # <editor-fold desc="clean">
