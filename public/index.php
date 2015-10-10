@@ -629,7 +629,7 @@ if( empty( $_POST["action"] ) ) {
 
             insert_html_lines_top();
             echo '<h2>Vorschau:</h2>
-                    <form action="index.php"><input type="submit" value="Zur&uuml;ck" autofocus=""></form>
+                    <form action="index.php"><input type="submit" value="Zur&uuml;ck"></form>
                     <form action="index.php" method="post" style="text-align: center">
                         <input type="hidden" name="type" value="' . $_POST['type'] . '">
                         <input type="hidden" name="etiketten" value="' . $_POST['etiketten'] . '">
@@ -638,9 +638,9 @@ if( empty( $_POST["action"] ) ) {
                         <object data="' . get_output_filename() . '" type="application/pdf" style="width:100%;min-height:250px">
                             Dein Browser unterstützt keine PDF Vorschau. Du kannst <a href="' . get_output_filename() . '">das PDF herunterladen</a>
                         </object>
-                        <button type="submit" name="action" value="print" style="margin:2em" autofocus="">Drucken</button>
+                        <button type="submit" name="action" value="print" style="margin:2em">Drucken</button>
                     </form>
-                    <form action="index.php"><input type="submit" value="Zur&uuml;ck" autofocus=""></form>';
+                    <form action="index.php"><input type="submit" value="Zur&uuml;ck"></form>';
             insert_html_lines_bottom();
             exit(0);
 

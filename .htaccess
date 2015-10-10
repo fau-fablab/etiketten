@@ -1,2 +1,11 @@
 # Redirect to public
 RedirectMatch ^/etiketten/?$ /etiketten/public/
+
+# Protect config.ini
+<FilesMatch "config.ini">
+    Require all denied
+</FilesMatch>
+# And protect files in this directory
+<FilesMatch "\.(ini|md|pyc|py|svg|sh)$">
+    Require all denied
+</FilesMatch>
