@@ -1,0 +1,5 @@
+*.md
+config.ini.example
+Dockerfile
+LICENSE
+*.pyc
