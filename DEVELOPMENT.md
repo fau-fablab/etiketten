@@ -35,7 +35,8 @@ Schema:
            |- generiere Etiketten (SVG->PDF)
            |  |- generiert wird mit svgtemplate.py
            |- 'print': Etiketten wurden entweder im php oder in 'textlabel.py' gedruckt -> Meldung ∎
-           |- sonst: zeige Etiketten PDF ∎
+           |- zeige eine (schöne) Vorschau vom erstellten Etikett -> zum Drucken wird das Formular erneut abgeschickt (frickelig) ∎
+           |- sonst: zeige Etiketten PDF (wird eig. nicht benutzt) ∎
 
 
 ```
@@ -46,6 +47,7 @@ Schema:
  - `action`: was soll mit der Eingabe getan werden:
     - `print`: Etikett erstellen und drucken
     - `select`: Anzahl der Etiketten auswählen
+    - `preview`: Eine PDF Vorschau anzeigen
     - `print-selection`: Etiketten mit ihrer Anzahl erstellen und drucken
  - `etiketten`: Wert des Produkt ID / Purchase Order ID Eingabe Feldes ODER Wert des Freitext Eingabe Feldes
  - `type`: Art der zu druckenden Etiketten:

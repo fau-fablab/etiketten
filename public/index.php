@@ -401,7 +401,8 @@ function show_input_form() {
             <input type="text" name="etiketten" id="erp-label-input" style="width:80%;margin:1em;text-align: center;font-size: large" placeholder="z.B.  541 123 9001 PO12345" autocomplete="off" autofocus> <br />
             <button type="submit" name="action" value="print">direkt Drucken</button>
             <button type="submit" name="action" value="select">Anzahl w&auml;hlen</button>
-            <!--<button type="submit" name="action" value="preview">Vorschau anzeigen</button>-->
+            <button type="submit" name="action" value="preview">Vorschau</button>
+
             <!-- BASTELEI: Format-Auswahl deaktiviert, hidden input der fest auf small und 0 bereits verbraucht stellt -->
             <input type="hidden" name="type" value="small"/>
             <input type="hidden" name="startposition" value="0"/>
@@ -589,6 +590,7 @@ if( empty( $_POST["action"] ) ) {
 
         insert_html_lines_bottom();
         # </editor-fold>
+
     } else {
 
         # <editor-fold desc="Generate labels">
@@ -623,6 +625,25 @@ if( empty( $_POST["action"] ) ) {
 
             insert_html_lines_bottom();
             # </editor-fold>
+        } elseif ( $action === 'preview' ) {
+
+            insert_html_lines_top();
+            echo '<h2>Vorschau:</h2>
+                    <form action="index.php"><input type="submit" value="Zur&uuml;ck" autofocus=""></form>
+                    <form action="index.php" method="post" style="text-align: center">
+                        <input type="hidden" name="type" value="' . $_POST['type'] . '">
+                        <input type="hidden" name="etiketten" value="' . $_POST['etiketten'] . '">
+                        <input type="hidden" name="startposition" value="' . $_POST['startposition'] . '">
+                        <button type="submit" name="action" value="print" style="margin:2em" autofocus="">Drucken</button>
+                        <object data="' . get_output_filename() . '" type="application/pdf" style="width:100%;min-height:250px">
+                            Dein Browser unterstützt keine PDF Vorschau. Du kannst <a href="' . get_output_filename() . '">das PDF herunterladen</a>
+                        </object>
+                        <button type="submit" name="action" value="print" style="margin:2em" autofocus="">Drucken</button>
+                    </form>
+                    <form action="index.php"><input type="submit" value="Zur&uuml;ck" autofocus=""></form>';
+            insert_html_lines_bottom();
+            exit(0);
+
         } else {
             # <editor-fold desc="display / download pdf">
             header( 'Content-type: application/pdf' );
