@@ -237,7 +237,7 @@ def oerp_get_ids_from_order(po_id, oerp):
     :param oerp: the openERP lib instance
     :return: an array containing the openERP product IDs of a purchase
     """
-    po_id = int(po_id.lower().replace("po", ""))  # purchase order id (PO12345 -> 12345)
+    po_id = int(po_id.lower().replace("po", ""))  # purchase order id (PO00345 -> 345)
     try:
         po = oerp.browse('purchase.order', po_id)
     except oerplib.error.RPCError:
@@ -324,7 +324,7 @@ def main():
         # </editor-fold>
 
         # <editor-fold desc="evaluate input, replace PO IDs with their product ids, fetch data from oerp">
-        purchase_regex = re.compile(r"^(\d{1,2}x)?po\d{5}$")  # (a number and 'x' and) 'PO' or 'po' and 5 digits
+        purchase_regex = re.compile(r"^(\d{1,2}x)?po\d{1,5}$")  # (a number and 'x' and) 'PO' or 'po' and 1-5 digits
         product_regex = re.compile(r"^(\d{1,2}x)?\d{1,4}$")  # (a number and 'x' and) 1 to 4 digits
         labels_data = dict()
         if len(args.ids):
@@ -364,6 +364,9 @@ def main():
             else:
                 error("The ID '" + args_id + "' you entered is invalid.")
                 exit(1)
+            if not labels_data:
+                error("No valid products found. Products must have a valid 'internal ID' like 0123.")
+                exit(1)
         # </editor-fold>
     else:
         labels_data = read_products_from_stdin()
@@ -371,7 +374,7 @@ def main():
         for prod in labels_data.values():
             label_count += prod['COUNT']
         if label_count > 50:
-            error("Too much labels!")
+            error("Too many labels!")
             exit(1)
 
     if args.json_output:
