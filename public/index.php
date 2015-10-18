@@ -11,6 +11,7 @@ Public Domain / zur uneingeschrÃ¤nkten Verwendung freigegeben, keine Garantie fÃ
 
 /**
  * Inserts some HTML at the top of the document. This is needed for the FAU FabLab website style
+ * repeated calls of this function will be ignored.
  */
 function insert_html_lines_top() {
     if ( defined('HTML_TOP') && HTML_TOP ) { return; }
@@ -358,6 +359,7 @@ function execute_system_command( $cmd, $stdin_text = '', $error_message = '', $p
     $stderr = stream_get_contents( $pipes[2] );
     fclose( $pipes[2] );
     if ( strlen( trim( $stderr ) ) > 0 && $print_error ) {
+        insert_html_lines_top();
         print_r( '<div class="error"><p>' . str_replace( PHP_EOL, '<br />', $stderr ) . "</p></div>" );
     }
 
@@ -380,8 +382,8 @@ function execute_system_command( $cmd, $stdin_text = '', $error_message = '', $p
  */
 function check_items_argument( $items_str ) {
     # preg_match( '/^[0-9]*$/',$items_str) === 1
-    # preg_match( '/^( \d{1,4}| po\d{5}){1,50}$/', $items_str) === 1
-    return preg_match( '/^( (\d{1,2}x)?(\d{1,4}|po\d{5})){1,50}$/', $items_str ) === 1;
+    # preg_match( '/^( \d{1,4}| po\d{1,5}){1,50}$/', $items_str) === 1
+    return preg_match( '/^( (\d{1,2}x)?(\d{1,4}|po\d{1,5})){1,50}$/', $items_str ) === 1;
     // regex explanation: matches ether a number up to 4 digits (-> for product ids)
     // or a string with 'po' and a 5 digits number (-> for purchase orders)
     // in front of it there might be a up to two digit number with an 'x' (12x1337 -> "12 times 1337" )
