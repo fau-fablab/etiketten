@@ -464,8 +464,14 @@ def main():
 
         # <editor-fold desc="clean">
         for p in range(page_count):
-            os.remove(output_dir + ("output-etikettenpapier-%d.pdf" % p))
-            os.remove(output_dir + ("output-etikettenpapier-%d.svg" % p))
+            try:
+                os.remove(output_dir + ("output-etikettenpapier-%d.pdf" % p))
+            except OSError:
+                    pass
+            try:
+                os.remove(output_dir + ("output-etikettenpapier-%d.svg" % p))
+            except OSError:
+                pass
         # </editor-fold>
 
         # <editor-fold desc="deprecated">
