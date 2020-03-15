@@ -27,7 +27,7 @@ from repoze.lru import lru_cache  # caching decorator for time-intensive read fu
 from logging import error, warning
 
 __author__ = 'Max Gaukler, sedrubal'
-__license__ = 'unilicense'
+__license__ = 'unlicense'
 
 # <editor-fold desc="argparse">
 parser = argparse.ArgumentParser(description='Automated generating of labels for products from the openERP')
@@ -436,7 +436,7 @@ def main():
         # </editor-fold>
 
         page_count = 0
-        pdftk_cmd = "pdftk "
+        pdfs_to_merge = []
 
         for label_data in labels_data.values():
             # <editor-fold desc="generate and save a svg->pdf for each label"
@@ -448,18 +448,19 @@ def main():
                     # <editor-fold desc="write svg and convert it to pdf">
                     output_file_base_name = "output-etikettenpapier-%d" % page_count
                     page.write(output_dir + output_file_base_name + ".svg")
-                    subprocess.check_call("inkscape {in_file} --export-pdf={out_file}".format(
+                    subprocess.call("inkscape {in_file} --export-pdf={out_file} 2>&1 | egrep -v '(^$|dbus|Failed to get connection)'".format(
                         in_file=output_dir + output_file_base_name + ".svg",
                         out_file=output_dir + output_file_base_name + ".pdf"
                     ), shell=True)
                     # </editor-fold>
-                    pdftk_cmd += output_dir + ("output-etikettenpapier-%d.pdf " % page_count)
+                    pdfs_to_merge.append(output_dir + ("output-etikettenpapier-%d.pdf" % page_count))
                     page_count += 1
             # <editor-fold>
 
         # <editor-fold desc="append pages (pdftk)"
-        pdftk_cmd += " cat output " + output_dir + "output-etikettenpapier.pdf"
-        subprocess.check_call(pdftk_cmd, shell=True)
+        
+        pdf_output = output_dir + "output-etikettenpapier.pdf"
+        subprocess.check_call(["qpdf", "--empty", "--pages"]  + pdfs_to_merge + ["--", pdf_output])
         # </editor-fold>
 
         # <editor-fold desc="clean">

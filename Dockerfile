@@ -1,12 +1,15 @@
-FROM php:5-apache
+FROM ubuntu:18.04
 
 ENV DEBIAN_FRONTEND noninteractive
 
 # install packages
 RUN apt-get update
-RUN apt-get upgrade
-RUN apt-get install -y --no-install-recommends python2.7 pdftk inkscape python-pip python-reportlab python-repoze.lru php5-json python-lxml locales python-pil
+RUN apt-get upgrade -y
+RUN apt-get install -y --no-install-recommends apache2 libapache2-mod-php7.2 php7.2-json locales \
+        python2.7 qpdf inkscape python-pip python-reportlab python-repoze.lru python-lxml python-pil python-argcomplete python-setuptools gsfonts
+RUN a2enmod php7.2
 RUN pip install oerplib
+# necessary???:
 RUN pip install argcomplete
 
 # configure
@@ -20,3 +23,4 @@ COPY . /var/www/
 RUN ["/var/www/configure_locales.sh"]
 # fix permissions
 RUN ["chown", "-R", "www-data:www-data", "/var/www/"]
+CMD apache2ctl -D FOREGROUND
