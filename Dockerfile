@@ -23,4 +23,4 @@ COPY . /var/www/
 RUN ["/var/www/configure_locales.sh"]
 # fix permissions
 RUN ["chown", "-R", "www-data:www-data", "/var/www/"]
-CMD apache2ctl -D FOREGROUND
+CMD ["apache2ctl", "-D", "FOREGROUND"]
