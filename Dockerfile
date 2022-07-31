@@ -11,7 +11,7 @@ RUN a2enmod php7.2
 RUN pip install oerplib
 # necessary???:
 RUN pip install argcomplete
-RUN apt-get install -y python-dev
+RUN apt-get install -y python-dev build-essential
 # note: the automatic resizing for text labels broke for Reportlab > ca. 3.0.   Test case: For input "asdfasdfsdafasdfasdf", the output should not be cut off.
 RUN pip install reportlab==3.0
 
