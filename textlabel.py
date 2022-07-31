@@ -4,7 +4,7 @@
 from __future__ import unicode_literals
 
 __author__ = 'Max Gaukler'
-__license__ = 'unilicense'
+__license__ = 'unlicense'
 
 """
 create and print labels with text, where the font is resized to maximum possible size
@@ -31,9 +31,16 @@ import codecs  # aaargh we should move to python3! then all codecs stuff would b
 # it did not work as expected when using splitLongWords=0 in the paragraph style.
 # therefore we just use the basic methods and determine the font size by hand
 
-# create a PDF label with centered text of the given font size
-# raise reportlab.platypus.doctemplate.LayoutError if font size is too large to fit everything
+
 def make_label(text, fontsize):
+    """
+    create a PDF label with centered text of the given font size
+    
+    raises reportlab.platypus.doctemplate.LayoutError if font size is too large to fit everything
+
+    CAUTION: BUG: broken in newer ReportLab versions, works in reportlab==3.0.
+    Test case: For input "asdfasdfsdafasdfasdf", the output should not be cut off.
+    """
     # correctly escape text - is this enough?
     text = escape(text)
     text = text.replace("\n", "<br/>")

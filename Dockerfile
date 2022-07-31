@@ -6,11 +6,14 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update
 RUN apt-get upgrade -y
 RUN apt-get install -y --no-install-recommends apache2 libapache2-mod-php7.2 php7.2-json locales \
-        python2.7 qpdf inkscape python-pip python-reportlab python-repoze.lru python-lxml python-pil python-argcomplete python-setuptools gsfonts
+        python2.7 qpdf inkscape python-pip python-repoze.lru python-lxml python-pil python-argcomplete python-setuptools gsfonts
 RUN a2enmod php7.2
 RUN pip install oerplib
 # necessary???:
 RUN pip install argcomplete
+RUN apt-get install -y python-dev
+# note: the automatic resizing for text labels broke for Reportlab > ca. 3.0.   Test case: For input "asdfasdfsdafasdfasdf", the output should not be cut off.
+RUN pip install reportlab==3.0
 
 # configure
 RUN ["rm", "-r", "/var/www/html/"]
