@@ -1,22 +1,19 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # PYTHON_ARGCOMPLETE_OK
 
 """
-SVG Templating System (C) Max Gaukler 2013
-with additions and redesigns by members of the FAU FabLab
+SVG Templating System (C) Max Gaukler and other members of the FAU FabLab 2013-2022
 unlimited usage allowed, see LICENSE file
 """
 
 from lxml import etree
 from copy import deepcopy
 import inspect
-import StringIO
+from io import BytesIO
 import re
-from ConfigParser import ConfigParser
 import locale
 import codecs
-import oerplib
 import argparse
 import argcomplete
 import sys
@@ -25,24 +22,26 @@ import subprocess
 from json import loads, dumps
 from repoze.lru import lru_cache  # caching decorator for time-intensive read functions
 from logging import error, warning
+import requests
+
 
 __author__ = 'Max Gaukler, sedrubal'
 __license__ = 'unlicense'
 
 # <editor-fold desc="argparse">
-parser = argparse.ArgumentParser(description='Automated generating of labels for products from the openERP')
+parser = argparse.ArgumentParser(description='Automated generating of labels for products from the ERP-web-API')
 parser.add_argument('ids', metavar='ids', type=str, nargs='*', default='',
                     help='the ids of the products (4 digits) or purchase orders (PO + 5 digits) to generate a label. '
                          'You can use expressions like 5x1337 to print 5 times the label for 1337. '
                          'And you can also use stdin for ids input. '
                          'Can\'t be used with \'json-input\'.')
 parser.add_argument('-o', '--json-output', action='store_true', dest='json_output',
-                    help='use this, if you only want to fetch the data for the labels from openERP '
+                    help='use this, if you only want to fetch the data for the labels from the ERP-web-API '
                          'and if you want to read the data as json from stdout. '
                          'Can\'t be used with \'json-input\'.')
 parser.add_argument('-i', '--json-input', action='store_true', dest='json_input',
                     help='use this, if the data for the labels should be provided through stdin as json '
-                         'instead of fetching it from openERP. '
+                         'instead of fetching it from ERP-web-API. '
                          'Can\'t be used with \'ids\' and \'json-output\'.')
 
 argcomplete.autocomplete(parser)
@@ -53,9 +52,9 @@ args = parser.parse_args()
 # <editor-fold desc="create svg label">
 def clear_group_members(tree, group):
     """
-    removes all groups (?) in a svg
+    removes all content of a given group in a svg
     :param tree: the svg tree
-    :param group: (?)
+    :param group: name of the group
     """
     for e in tree.findall(".//{http://www.w3.org/2000/svg}g[@id='" + group + "']/*"):
         e.clear()
@@ -65,12 +64,12 @@ def clear_group_members(tree, group):
 def make_barcode_xml_elements(string, barcode):
     """
     generates an EAN8 barcode and returns a lst of lxml-elements
-    :param string: (?)
+    :param string: text to be encoded as a barcode
     :param barcode: (?)
     :return: a list of lxml elements
     """
     # Pseudo-Datei-Objekt
-    s = StringIO.StringIO()
+    s = BytesIO()
     ean8 = barcode.get_barcode_class('ean8')
     b = ean8(string)
     b.write(s)
@@ -83,11 +82,15 @@ def make_barcode_xml_elements(string, barcode):
 def ean8_check_digit(num):
     """
     EAN checksum
+    
     gewichtete Summe: die letzte Stelle (vor der Pruefziffer) mal 3,
-    die vorletzte mal 1, ..., addiert Pruefziffer ist dann die Differenz
+    die vorletzte mal 1, ..., addiert.
+    
+    Pruefziffer ist dann die Differenz
     dieser Summe zum naechsten Vielfachen von 10
-    :param num: (?)
-    :return: (?)
+    
+    :param num: number to be encoded as EAN
+    :return: checksum digit
     """
     s = str(num)[::-1]  # in string wandeln, umkehren
     checksum = 0
@@ -103,9 +106,12 @@ def ean8_check_digit(num):
 
 def create_ean8(num):
     """
-    baue gueltige EAN8 aus Zahl: vorne Nullen auffuellen,
-    ggf. Pruefziffer anhaengen wenn Zahl kleiner 10000,
-    mache eine EAN8 im privaten Bereich daraus: 200nnnn
+    baue gueltige EAN8 aus Zahl:
+    
+    - vorne Nullen auffuellen
+    - wenn Zahl kleiner 10000, mache eine EAN8 im privaten Bereich daraus: 200nnnn
+    - add checksum digit
+    
     :param num: number for the barcode
     :return: (?)
     """
@@ -131,7 +137,7 @@ def make_label(data, etikett_num, barcode, label_template):  # , dict_input
     etikett = deepcopy(label_template)
     etikett.set("id", "etikettGeneriert" + str(etikett_num))
 
-    if len(data) is 0:
+    if len(data) == 0:
         return None
 
     # replace all text
@@ -150,10 +156,15 @@ def make_label(data, etikett_num, barcode, label_template):  # , dict_input
 # </editor-fold>
 
 
+@lru_cache(1)
+def read_product_db():
+    r = requests.get('https://brain.fablab.fau.de/build/pricelist/price_list-Alle_Produkte.html.json')
+    return r.json()
+
 # <editor-fold desc="fetch data">
 # <editor-fold desc="fetch data from oerp">
 @lru_cache(1024)
-def oerp_read_product(product_id, oerp):
+def read_product(product_id):
     """
     Fetches the data for the requested product
     :param product_id: the openERP product ID of the requested product
@@ -162,53 +173,22 @@ def oerp_read_product(product_id, oerp):
     """
     # produktRef='0009'
     # adds leading 0
-    product_id = "{:04}".format(int(product_id))
-    # print(etikettId)
-    prod_ids = oerp.search('product.product', [('default_code', '=', product_id)])
-    if len(prod_ids) == 0:
-        error("ID %d nicht gefunden!" % int(product_id))
+    
+    product_id = int(product_id)
+    product_id_zeroes = "{:04}".format(product_id)
+    products = read_product_db()
+    
+    if product_id_zeroes not in products:
+        error("ID %d nicht gefunden!" % product_id)
         return {}
-        # return {"TITEL": "__________", "ORT": "Fehler - nicht gefunden", "PREIS": "", "ID": product_id}
-    # for 30% improved speed we only request certain properties and not all
-    p = oerp.read('product.product', prod_ids[0],
-                  ['property_stock_location', 'lst_price', 'uom_id', 'name', 'categ_id', 'sale_ok'],
-                  context=oerp.context)
+    p = products[product_id_zeroes]
+    location_string = p["_location_str"]
+    verkaufseinheit = p['_uom_str']
+    price = p['_price_str']
 
-    location = p['property_stock_location']
-    if not location:
-        # fall back to category's location like OERP storage module does
-        c = oerp.read('product.category', p['categ_id'][0], [], context=oerp.context)
-        location = c['property_stock_location']
-    if location:
-        location_id = location[0]
-        location_string = location[1]
-        location = oerp.read('stock.location', location_id)
-        if location['code']:
-            location_string += u" ({})".format(location['code'])
-        for removePrefix in [u"tats\xe4chliche Lagerorte  / FAU FabLab / ", u"tats\xe4chliche Lagerorte  / "]:
-            if location_string.startswith(removePrefix):
-                location_string = location_string[len(removePrefix):]
-    else:
-        # no location set at all
-        location_string = "kein Ort eingetragen"
-
-    verkaufseinheit = p['uom_id'][1]
-    if not p['sale_ok']:
-        price = u"unverkäuflich"
-        verkaufseinheit = ""
-    elif p['lst_price'] == 0:
-        price = u"gegen Spende"
-        verkaufseinheit = ""
-    else:
-        if p['lst_price'] * 1000 % 10 >= 1:  # Preis mit drei Nachkomastellen
-            formatstring = u"{:.3f} €"
-        else:
-            formatstring = u"{:.2f} €"
-        price = formatstring.format(p['lst_price']).replace(".", ",")
-
-    data = {"TITEL": p['name'], "ORT": location_string, "ID": product_id,
+    data = {"TITEL": p['name'], "ORT": location_string, "ID": product_id_zeroes,
             "PREIS": price,
-            "VERKAUFSEINHEIT": verkaufseinheit}  # p['description']
+            "VERKAUFSEINHEIT": verkaufseinheit}
 
     # TODO Hardcoded Business logic
     # - eigentlich sollte diese Verarbeitung anderswo erfolgen und dieses Skript nur die template engine sein
@@ -230,36 +210,15 @@ def oerp_read_product(product_id, oerp):
 
 
 @lru_cache(128)
-def oerp_get_ids_from_order(po_id, oerp):
+def get_ids_from_order(po_id):
     """
     Fetches the product IDs of a purchase order
     :param po_id: The openERP purchase order ID
     :param oerp: the openERP lib instance
     :return: an array containing the openERP product IDs of a purchase
     """
-    po_id = int(po_id.lower().replace("po", ""))  # purchase order id (PO00345 -> 345)
-    try:
-        po = oerp.browse('purchase.order', po_id)
-    except oerplib.error.RPCError:
-        return []
-    # get all lines (= articles) of the purchase order
-    default_code_regex = re.compile(r"^\d{4}$")  # default code must be four-digit number with leading zeroes
-
-    # use of oerp.browse is avoided here because it is too slow for iteratively reading fields
-
-    # get product id of each 'line' = article
-    product_ids = []
-    for po_line in oerp.read('purchase.order.line', po.order_line.ids, ['product_id']):
-        product_ids.append(po_line['product_id'][0])
-
-    # get default code for each product id
-    po_prod_codes = []
-    for product in oerp.read('product.product', product_ids, ['default_code']):
-        code = product['default_code']
-        # warning(code.__repr__())
-        if code is not False and default_code_regex.match(code):
-            po_prod_codes.append(int(code))
-    return po_prod_codes
+    error("purchase orders (PO1234) are currently not supported. We first need to create a JSON exporter for that to have an API that works with Py3")
+    # return [1, 42, 2937]
 # </editor-fold>
 
 
@@ -279,8 +238,6 @@ def read_stdin():
     :return: the text given through stdin
     """
     text = sys.stdin.read()
-    if type(text) != unicode:
-        text = codecs.decode(text, 'utf8')
     return text
 
 
@@ -303,26 +260,6 @@ def main():
     script_path = os.path.realpath(os.path.dirname(inspect.getfile(inspect.currentframe())))  # path of this script
 
     if not args.json_input:
-        # <editor-fold desc="config, oerp login">
-        # switching to german:
-        locale.setlocale(locale.LC_ALL, "de_DE.UTF-8")
-        if not os.path.isfile(script_path + '/config.ini'):
-            error('Please copy the config.ini.example to config.ini and edit it.')
-            sys.exit(1)
-        cfg = ConfigParser({'foo': 'defaultvalue'})
-        cfg.readfp(codecs.open(script_path + '/config.ini', 'r', 'utf8'))
-
-        use_test = cfg.get('openerp', 'use_test').lower().strip() == 'true'
-        if use_test:
-            warning("use testing database.")
-        database = cfg.get('openerp', 'database_test') if use_test else cfg.get('openerp', 'database')
-        oerp = oerplib.OERP(server=cfg.get('openerp', 'server'), protocol='xmlrpc+ssl',
-                            database=database, port=cfg.getint('openerp', 'port'),
-                            version=cfg.get('openerp', 'version'))
-        # user = ...
-        oerp.login(user=cfg.get('openerp', 'user'), passwd=cfg.get('openerp', 'password'))
-        # </editor-fold>
-
         # <editor-fold desc="evaluate input, replace PO IDs with their product ids, fetch data from oerp">
         purchase_regex = re.compile(r"^(\d{1,2}x)?po\d{1,5}$")  # (a number and 'x' and) 'PO' or 'po' and 1-5 digits
         product_regex = re.compile(r"^(\d{1,2}x)?\d{1,4}$")  # (a number and 'x' and) 1 to 4 digits
@@ -341,21 +278,21 @@ def main():
                 number_of_labels = max(0, min(int(number_of_labels_str), 25))
                 x_position = args_id.find('x')
                 args_id = args_id[x_position + 1:]
-            if purchase_regex.match(args_id) > 0:
-                prod_ids = oerp_get_ids_from_order(args_id, oerp)
+            if purchase_regex.match(args_id):
+                prod_ids = get_ids_from_order(args_id)
                 for prod_id in prod_ids:
                     prod_id = int(prod_id)
                     if prod_id not in labels_data.keys():
-                        prod_data = deepcopy(oerp_read_product(prod_id, oerp))
+                        prod_data = deepcopy(read_product(prod_id))
                         if len(prod_data):
                             labels_data[prod_id] = prod_data
                             labels_data[prod_id]['COUNT'] = number_of_labels
                     else:
                         labels_data[prod_id]['COUNT'] += number_of_labels
-            elif product_regex.match(args_id) > 0:
+            elif product_regex.match(args_id):
                 args_id = int(args_id)
                 if args_id not in labels_data.keys():
-                    prod_data = deepcopy(oerp_read_product(args_id, oerp))
+                    prod_data = deepcopy(read_product(args_id))
                     if len(prod_data):
                         labels_data[args_id] = prod_data
                         labels_data[args_id]['COUNT'] = number_of_labels
@@ -380,11 +317,7 @@ def main():
     if args.json_output:
         print(dumps(labels_data, sort_keys=True, indent=4, separators=(',', ': ')))  # json.dumps in pretty
     else:
-        # <editor-fold desc="import pyBarcode">
-        # adds the pyBarcode subdirectory
-        sys.path.append(script_path + "/pyBarcode-0.6/")
         import barcode
-        # </editor-fold>
 
         # <editor-fold desc="load page template (for labels) and empty is">
         template = etree.parse(script_path + "/vorlage-etikettenpapier-60x30.svg")
@@ -447,13 +380,15 @@ def main():
                     page.getroot().append(label_svg)
                     # <editor-fold desc="write svg and convert it to pdf">
                     output_file_base_name = "output-etikettenpapier-%d" % page_count
-                    page.write(output_dir + output_file_base_name + ".svg")
-                    subprocess.call("inkscape {in_file} --export-pdf={out_file} 2>&1 | egrep -v '(^$|dbus|Failed to get connection)'".format(
-                        in_file=output_dir + output_file_base_name + ".svg",
-                        out_file=output_dir + output_file_base_name + ".pdf"
+                    svg_file = output_dir + output_file_base_name + ".svg"
+                    pdf_file = output_dir + output_file_base_name + ".pdf"
+                    page.write(svg_file)
+                    subprocess.call("inkscape {in_file} --export-filename={out_file} 2>&1 | egrep -v '(^$|dbus|Failed to get connection)'".format(
+                        in_file=svg_file,
+                        out_file=pdf_file
                     ), shell=True)
                     # </editor-fold>
-                    pdfs_to_merge.append(output_dir + ("output-etikettenpapier-%d.pdf" % page_count))
+                    pdfs_to_merge.append(pdf_file)
                     page_count += 1
             # <editor-fold>
 
@@ -462,7 +397,6 @@ def main():
         pdf_output = output_dir + "output-etikettenpapier.pdf"
         subprocess.check_call(["qpdf", "--empty", "--pages"]  + pdfs_to_merge + ["--", pdf_output])
         # </editor-fold>
-
         # <editor-fold desc="clean">
         for p in range(page_count):
             try:
@@ -473,54 +407,6 @@ def main():
                 os.remove(output_dir + ("output-etikettenpapier-%d.svg" % p))
             except OSError:
                 pass
-        # </editor-fold>
-
-        # <editor-fold desc="deprecated">
-        # while len(product_ids) > 0:
-        #     # <editor-fold desc="generate a svg label for the id">
-        #     page = deepcopy(template)
-        #     page_num += 1
-        #     pages.append(page_num)
-        #     labels_per_page = 1
-        #     for etikettNum in range(0, labels_per_page):
-        #         if len(product_ids) == 0:
-        #             # keine weiteren Etiketten drucken
-        #             break
-        #         etikett_id = product_ids.pop(0)  # hole erste zu druckende ID aus der Liste
-        #         # data = dictInput.get(str(etikettId),{"KURZTITEL":"Error","TITEL":"Error","ID":"000"})
-        #         # deepcopy is needed because the lru_cache decorator returns the same object on cached function calls,
-        #         # even if it was modified
-        #         data = deepcopy(oerp_read_product(etikett_id, oerp))
-        #         etikett_svg = make_label(data, etikettNum, barcode, etikett_template)  # , dict_input
-        #         if etikett_svg is not None:
-        #             page.getroot().append(etikett_svg)
-        #         else:
-        #             pages.remove(page_num)  # hart reingefrickelt
-        #             page_num -= 1
-        #             continue
-        #     # </editor-fold>
-        #     # <editor-fold desc="write svg and convert it to pdf">
-        #     output_file_base_name = "output-etikettenpapier-%d" % page_num
-        #     page.write(output_dir + output_file_base_name + ".svg")
-        #     if os.system("inkscape " + output_dir + output_file_base_name + ".svg --export-pdf=" + output_dir +
-        #             output_file_base_name + ".pdf") != 0:
-        #         raise Exception("Inkscape failed")
-        #     # </editor-fold>
-        #
-        # # <editor-fold desc="append pages (pdftk)">
-        # pdftk_cmd = "pdftk "
-        # for page_num in pages:
-        #     pdftk_cmd += output_dir + ("output-etikettenpapier-%d.pdf " % page_num)
-        # pdftk_cmd += " cat output " + output_dir + "output-etikettenpapier.pdf"
-        # if os.system(pdftk_cmd) != 0:
-        #     raise Exception("pdftk failed")
-        # # </editor-fold>
-        #
-        # # <editor-fold desc="clean">
-        # for page_num in pages:
-        #     os.remove(output_dir + ("output-etikettenpapier-%d.pdf" % page_num))
-        #     os.remove(output_dir + ("output-etikettenpapier-%d.svg" % page_num))
-        # # </editor-fold>
         # </editor-fold>
 
     exit(0)

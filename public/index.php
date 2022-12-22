@@ -1,11 +1,14 @@
 <?php
 
+// SPDX-License-Identifier: UNLICENSE
+
 /*
 ====================================================================
 
 
-Etiketten-Templatesystem (C) Max Gaukler 2012
-Public Domain / zur uneingeschränkten Verwendung freigegeben, keine Garantie für Funktionsfähigkeit
+Etiketten-Templatesystem (C) Max Gaukler 2012-2022
+
+See ../LICENSE for license terms.
 
 */
 
@@ -313,8 +316,10 @@ function print_pdf_from_json( $post ) {
  * @param $text String: Text to print on the label
  * @param $oneLabel boolean True: make one big label with multiple lines
  *                          False: multiple labels, one per text line
+ * @param print boolean: True: print the label
+ *                       False: only generate preview PDF
  */
-function print_text_label( $text, $oneLabel ) {
+function print_text_label( $text, $oneLabel, $print ) {
     if ( strlen( trim( $text ) ) === 0 ) {
         die_friendly( 'Kein Text eingegeben.' );
     }
@@ -323,7 +328,10 @@ function print_text_label( $text, $oneLabel ) {
     if ( $oneLabel ) {
         $option="--one-label";
     }
-    print_r( execute_system_command( '../textlabel.py --print ' . $option, $text ) );
+    if ( $print ) {
+        $option = $option . ' --print';
+    }
+    print_r( execute_system_command( '../textlabel.py ' . $option, $text ) );
 }
 
 /**
@@ -416,7 +424,8 @@ function show_input_form() {
             <label for="text-label-count">Anzahl:</label>
             <input type="number" name="number" id="text-label-count" value="1" min="1" max="25"/> St&uuml;ck<br/>
             <button type="submit" name="textlabel_type" value="multiple">Drucken: mehrere Etiketten<br/>eines pro Zeile</button>
-            <button type="submit" name="textlabel_type" value="one">Drucken:<br />alles auf ein Etikett</button>
+            <button type="submit" name="textlabel_type" value="one">Drucken:<br />alles auf ein Etikett</button><br />
+            <input type="checkbox" name="print-preview" value="yes" id="chk-preview"/><label for="chk-preview">nur Vorschau</input><br />
             <input type="hidden" name="type" value="text"/>
             <input type="hidden" name="action" value="print"/>
             <input type="hidden" name="startposition" value="0"/>
@@ -424,7 +433,6 @@ function show_input_form() {
 
         <hr/>
 
-	    <p>Zum Drucken weiße Papier-Etiketten in den Etikettendrucker einlegen — nicht die silbernen!</p>
 	    <p>Probleme bitte an die <a href="mailto:fablab-aktive@fablab.fau.de">Mailingliste</a> oder auf <a href="https://github.com/fau-fablab/etiketten">GitHub</a> melden.</p>
 
 
@@ -435,7 +443,8 @@ function show_input_form() {
 	        <li>Mehrere Artikelnummern und Bestellungsnummern durch Leerzeichen oder Komma trennen. Bereiche von Artikelnummern gehen auch: <code>100-123</code></li>
             <li>Einzelne Artikelnummern oder Bestellungsnummern k&ouml;nnen durch folgende Schreibweise mehrfach ausgedruckt werden: <code>5x1337</code></li>
             <li>Der aufgedruckte Ort wird als Lagerort des Artikels oder der Kategorie eingetragen. (Kategorien vererben den Ort nicht an Unterkategorien!)</li>
-	        <li>Die Artikelnummern k&ouml;nnen in <a href="https://eichhörnchen.fablab.fau.de">OpenERP</a> oder in der <a href="https://user.fablab.fau.de/~buildserver/pricelist/output/">Teile &Uuml;bersicht</a> nachgeschaut werden.</li>
+	        <li>Die Artikelnummern k&ouml;nnen in <a href="https://eichhörnchen.fablab.fau.de">OpenERP</a> oder in der <a href="https://app.fablab.fau.de/">Teile &Uuml;bersicht</a> nachgeschaut werden.</li>
+	        <li>Die Daten sind etwa 15 Minuten verzögert.</li>
 	    </ul></p>
 
 		<!-- <ul><li><b>Bitte angeben:</b> Format:
@@ -594,6 +603,7 @@ if( empty( $_POST["action"] ) ) {
         # </editor-fold>
 
     } else {
+        # Print labels with custom text
 
         # <editor-fold desc="Generate labels">
         $output = "";
@@ -610,7 +620,7 @@ if( empty( $_POST["action"] ) ) {
                 die_friendly( "Anzahl muss zwischen 1 und 25 liegen." );
             }
             for ( $i = 0; $i < $number; $i++ ) {
-                print_text_label( $_POST["etiketten"], $_POST["textlabel_type"] !== "multiple" );
+                print_text_label( $_POST["etiketten"], $_POST["textlabel_type"] !== "multiple", !isset( $_POST["print-preview"] ) );
             }
         } else {
             die_friendly( "What have you done?!?" );
@@ -621,9 +631,23 @@ if( empty( $_POST["action"] ) ) {
             # <editor-fold desc="print and display success message">
             insert_html_lines_top();
 
-            echo '<p><b>Etiketten werden ausgedruckt.</b></p></br>';
+            if (isset( $_POST["print-preview"])) {
+                # custom text label, "preview" is checked
+                echo '<p><b>Die Vorschau zeigt aus technischen Gründen immer nur ein Etikett (das letzte), auch wenn mehrere angefordert wurden.</b></p></br>';
+                echo '<object data="' . get_output_filename() . '" type="application/pdf" style="width:100%;min-height:250px">
+                    Dein Browser unterstützt keine PDF Vorschau. Du kannst <a href="' . get_output_filename() . '">das PDF herunterladen</a>
+                </object>';
+                
+            } else {
+                echo '<p><b>Etiketten werden ausgedruckt.</b></p></br>';
+            }
             echo '<form action="' . get_output_filename() . '"><input type="submit" value="PDF ansehen"></form>';
-            echo '<form action="index.php"><input type="submit" value="Zur&uuml;ck" autofocus=""></form>';
+            if (isset( $_POST["print-preview"])) {
+                # if "preview" was enabled, go back using javascript to keep the form contents
+                echo '<form><input type="submit" value="Zur&uuml;ck (Ändern/Drucken)" onclick="window.history.back()" /></form>';
+            } else {
+                echo '<form action="index.php"><input type="submit" value="Zur&uuml;ck" autofocus=""></form>';
+            }
 
             insert_html_lines_bottom();
             # </editor-fold>

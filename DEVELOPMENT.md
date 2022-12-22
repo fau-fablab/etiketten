@@ -12,9 +12,8 @@ Funktionsweise:
    - [`.htaccess`](.htaccess): damits sicher ist
    - Daten werden über `POST` herum geschaufelt.
  - Python Backend:
-   - [`svgtemplate.py`](svgtemplate.py): Holt Daten aus dem OpenERP und erstellt daraus Etiketten
+   - [`svgtemplate.py`](svgtemplate.py): Holt Daten aus dem OpenERP-JSON-Export und erstellt daraus Etiketten
      - [`vorlage-etikettenpapier`](vorlage-etikettenpapier.svg): Template für ein Etikett
-     - [`config.ini`](config.ini): OpenERP Einstellungen
    - [`textlabel.py`](textlabel.py): Erstellt Freitext Etiketten mit maximaler Schriftgröße
  - Daten gelangen über `system commands` vom PHP zum Python
 
