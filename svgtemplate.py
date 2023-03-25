@@ -183,28 +183,15 @@ def read_product(product_id):
         return {}
     p = products[product_id_zeroes]
     location_string = p["_location_str"]
-    verkaufseinheit = p['_uom_str']
+    verkaufseinheit = p['_per_uom_str']
     price = p['_price_str']
+    
 
     data = {"TITEL": p['name'], "ORT": location_string, "ID": product_id_zeroes,
             "PREIS": price,
             "VERKAUFSEINHEIT": verkaufseinheit}
 
-    # TODO Hardcoded Business logic
-    # - eigentlich sollte diese Verarbeitung anderswo erfolgen und dieses Skript nur die template engine sein
-    # erzeuge String fuer Verkaufseinheit: "123€ pro Stueck"
-    if len(data.get("PREIS", "")) > 1:
-        # wenn der Preis numerisch ist, standardmaeßig Verkaufseinheit = Stueck
-        if len(data.get("VERKAUFSEINHEIT", "")) < 1 and re.match("[0-9]", data.get("PREIS", "")):
-            data["VERKAUFSEINHEIT"] = u"Stück"
-
-        # Wenn Verkaufseinheit gesetzt, "pro ..." ergaenzen
-        # außer wenn es mit "bei" anfaengt, denn "pro bei" ist Schmarrn.
-        if len(data.get("VERKAUFSEINHEIT", "")) > 0 and not data["VERKAUFSEINHEIT"].startswith("bei"):
-            data["VERKAUFSEINHEIT"] = "pro " + data["VERKAUFSEINHEIT"]
-    else:
-        # keine Einheit anzeigen, wenn Preis leer oder "-"
-        data["VERKAUFSEINHEIT"] = ""
+    
 
     return data
 
