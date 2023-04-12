@@ -141,14 +141,16 @@ def make_label(data, etikett_num, barcode, label_template):  # , dict_input
         return None
 
     # replace all text
+    replacements = [[key, value] for [key, value] in data.items() if key in ['ID', 'ORT', 'PREIS', 'TITEL', 'VERKAUFSEINHEIT']]
     for element in etikett.iter("*"):
-        for [key, value] in data.items():
-            if key not in ['ID', 'ORT', 'PREIS', 'TITEL', 'VERKAUFSEINHEIT']:
-                continue  # skip empty keys
-            if element.tail is not None:
+        for [key, value] in replacements:
+            if element.tail is not None and key in element.tail:
                 element.tail = element.tail.replace(key, value)
-            if element.text is not None:
+                break # break to avoid double substitution (e.g. "TITEL" -> "3D-Druck NORMALPREIS" -> "3D-Druck Normal0,30 €")
+        for [key, value] in replacements:
+            if element.text is not None and key in element.text:
                 element.text = element.text.replace(key, value)
+                break  # break to avoid double substitution (e.g. "TITEL" -> "3D-Druck NORMALPREIS" -> "3D-Druck Normal0,30 €")
     for e in make_barcode_xml_elements(create_ean8(data["ID"]), barcode):
         etikett.find(".//{http://www.w3.org/2000/svg}g[@id='barcode']").append(e)
     etikett.find(".//{http://www.w3.org/2000/svg}g[@id='barcode']").set("id", "barcode" + str(etikett_num))
